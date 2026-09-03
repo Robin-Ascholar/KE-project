@@ -1,0 +1,35 @@
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python and editor artifacts
+.venv/
+venv/
+__pycache__/
+*/__pycache__/
+*.py[cod]
+.pytest_cache/
+.idea/
+.vscode/
+.DS_Store
+
+# Source books are local-only unless redistribution rights are explicit
+Book/
+book/
+books/
+Book.zip
+
+# Downloaded models and generated datasets
+model/*
+!model/README.md
+dataset/*
+!dataset/README.md
+!dataset/harrypotter/
+dataset/harrypotter/*
+!dataset/harrypotter/questions.example.json
+
+# LinearRAG generated indexes and outputs
+import/
+results/
