@@ -1,0 +1,18 @@
+[
+  {
+    "question": "Who first tells Harry that he is a wizard?",
+    "expected_terms": ["Hagrid", "wizard"]
+  },
+  {
+    "question": "From which platform does the Hogwarts Express depart?",
+    "expected_terms": ["nine", "three-quarters"]
+  },
+  {
+    "question": "What position does Harry play on the Gryffindor Quidditch team?",
+    "expected_terms": ["Seeker"]
+  },
+  {
+    "question": "What is the name of the three-headed dog guarding the trapdoor?",
+    "expected_terms": ["Fluffy"]
+  }
+]

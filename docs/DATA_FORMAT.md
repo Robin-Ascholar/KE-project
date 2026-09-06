@@ -2,6 +2,18 @@
 
 项目当前通过 `run.py` 读取两个 JSON 文件。
 
+第一册的 `chunks.json` 可直接生成：
+
+```bash
+python scripts/prepare_harry_potter.py
+```
+
+生成后可在不调用 LLM API 的情况下建立索引并检查检索：
+
+```bash
+python scripts/index_and_test.py
+```
+
 ## `chunks.json`
 
 顶层是字符串数组，每个字符串是一个可检索文本块：
@@ -13,7 +25,7 @@
 ]
 ```
 
-`run.py` 会自动为每个文本块添加递增编号。建议切块时保留章节边界和完整句子，不要在实体名称中间截断。
+`run.py` 会自动为每个文本块添加递增编号。准备脚本按章节和句子边界切块，并控制文本不超过本地 MPNet 模型的 384-token 上限。
 
 ## `questions.json`
 

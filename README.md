@@ -10,8 +10,8 @@
 - PyTorch 2.1.2 + CUDA 12.1 已在 RTX 4060 上验证
 - `en_core_web_trf` 3.6.1 已验证
 - `all-mpnet-base-v2` 本地向量模型已验证
-- Harry Potter 微型语料建图与检索测试已通过
-- 待完成：PDF 清洗切块、问题集制作、完整语料索引与评测
+- Harry Potter 第一册的 PDF 清洗、章节切块、完整索引与检索测试已通过
+- 待完成：扩展到其余六册、问题集制作与端到端问答评测
 
 ## 目录结构
 
@@ -86,6 +86,20 @@ dataset/harrypotter/questions.json
 
 具体格式见 [docs/DATA_FORMAT.md](docs/DATA_FORMAT.md)。
 
+第一册数据可通过脚本生成：
+
+```bash
+python scripts/prepare_harry_potter.py
+```
+
+该脚本会自动移除重复页眉和页码、识别章节，并生成适配 MPNet 384-token 上限的重叠文本块。生成语料保留在本地，不会提交到 Git。
+
+不调用 LLM API 的建图与检索检查：
+
+```bash
+python scripts/index_and_test.py
+```
+
 ### 4. 运行
 
 ```bash
@@ -94,7 +108,8 @@ python run.py \
   --embedding_model model/all-mpnet-base-v2 \
   --dataset_name harrypotter \
   --llm_model gpt-4o-mini \
-  --max_workers 4
+  --max_workers 4 \
+  --retrieval_top_k 8
 ```
 
 首次运行会在 `import/harrypotter/` 建立索引，并把结果写入 `results/harrypotter/`。这两个目录均为本地产物。

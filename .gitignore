@@ -29,6 +29,7 @@ dataset/*
 !dataset/harrypotter/
 dataset/harrypotter/*
 !dataset/harrypotter/questions.example.json
+!dataset/harrypotter/retrieval_checks.example.json
 
 # LinearRAG generated indexes and outputs
 import/

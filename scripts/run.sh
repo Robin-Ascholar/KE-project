@@ -13,4 +13,5 @@ python run.py \
     --max_iterations "${MAX_ITERATIONS:-3}" \
     --iteration_threshold "${ITERATION_THRESHOLD:-0.4}" \
     --passage_ratio "${PASSAGE_RATIO:-2.0}" \
-    --top_k_sentence "${TOP_K_SENTENCE:-3}"
+    --top_k_sentence "${TOP_K_SENTENCE:-3}" \
+    --retrieval_top_k "${RETRIEVAL_TOP_K:-8}"

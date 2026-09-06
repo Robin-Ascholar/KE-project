@@ -25,6 +25,7 @@ def parse_arguments():
     parser.add_argument("--iteration_threshold", type=float, default=0.4, help="The threshold for iteration")
     parser.add_argument("--passage_ratio", type=float, default=2, help="The ratio for passage")
     parser.add_argument("--top_k_sentence", type=int, default=3, help="The top k sentence to use")
+    parser.add_argument("--retrieval_top_k", type=int, default=8, help="The number of passages to retrieve")
     parser.add_argument("--use_vectorized_retrieval", action="store_true", help="Use vectorized matrix-based retrieval instead of BFS iteration")
     return parser.parse_args()
 
@@ -62,6 +63,7 @@ def main():
         iteration_threshold=args.iteration_threshold,
         passage_ratio=args.passage_ratio,
         top_k_sentence=args.top_k_sentence,
+        retrieval_top_k=args.retrieval_top_k,
         use_vectorized_retrieval=args.use_vectorized_retrieval
     )
     rag_model = LinearRAG(global_config=config)
