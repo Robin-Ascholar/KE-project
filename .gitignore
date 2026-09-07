@@ -15,13 +15,13 @@ __pycache__/
 .vscode/
 .DS_Store
 
-# Source books are local-only unless redistribution rights are explicit
+# Alternative local source-book locations (the current 原始数据/ snapshot is tracked)
 Book/
 book/
 books/
 Book.zip
 
-# Downloaded models and generated datasets
+# New downloaded models and generated datasets are ignored by default; current snapshot files are tracked explicitly
 model/*
 !model/README.md
 dataset/*
@@ -31,6 +31,6 @@ dataset/harrypotter/*
 !dataset/harrypotter/questions.example.json
 !dataset/harrypotter/retrieval_checks.example.json
 
-# LinearRAG generated indexes and outputs
+# New LinearRAG indexes and outputs are ignored by default; current harrypotter snapshot is tracked explicitly
 import/
 results/

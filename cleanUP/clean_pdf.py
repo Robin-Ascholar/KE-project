@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Clean the single-column, text-layer PDFs in ../Book using Poppler coordinates."""
+"""Clean the single-column, text-layer PDFs in ../原始数据 using Poppler coordinates."""
 import argparse
 import collections
 import hashlib
@@ -138,7 +138,7 @@ def clean(path, args):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--input", type=Path, default=ROOT/"Book", help="PDF file or directory")
+    p.add_argument("--input", type=Path, default=ROOT/"原始数据", help="PDF file or directory")
     p.add_argument("--output", type=Path, default=ROOT/"cleanUP"/"txt")
     p.add_argument("--drop-regex", action="append", default=[], help="Additional unwanted line regex (repeatable)")
     p.add_argument("--overwrite", action="store_true", help="Replace existing generated files")

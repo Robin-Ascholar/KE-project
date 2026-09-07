@@ -1,121 +1,178 @@
 # Harry Potter LinearRAG
 
-基于 [LinearRAG](https://github.com/DEEP-PolyU/LinearRAG) 的课程项目，用 Harry Potter 语料构建关系无关图检索增强生成（Graph RAG）系统。
+基于 [LinearRAG](https://github.com/DEEP-PolyU/LinearRAG) 的课程项目，使用 Harry Potter 七册英文原著构建关系无关图检索增强生成（Graph RAG）系统。
 
-当前仓库是团队开发的初始版本，已经包含 LinearRAG 核心代码、可复现的环境安装脚本、数据目录约定和本机 GPU 兼容修复。原始书籍、模型权重、API 密钥和运行产物不会提交到 Git。
+仓库包含完整的端到端实验快照：原始 PDF、正文清洗脚本与清洗结果、JSON 数据集、本地 `all-mpnet-base-v2` 模型、LinearRAG 图与向量索引、问答预测和评测结果。大型模型及 Parquet 文件通过 Git LFS 管理；API 密钥和 Python 缓存不会提交。
 
 ## 当前状态
 
-- Python 3.9 环境已验证
-- PyTorch 2.1.2 + CUDA 12.1 已在 RTX 4060 上验证
-- `en_core_web_trf` 3.6.1 已验证
-- `all-mpnet-base-v2` 本地向量模型已验证
-- Harry Potter 第一册的 PDF 清洗、章节切块、完整索引与检索测试已通过
-- 待完成：扩展到其余六册、问题集制作与端到端问答评测
+- 七本 PDF 已完成正文清洗，移除了图片、页码、重复页眉页脚和可识别脚注
+- 共识别 199 章，生成 6,865 个 passage chunk
+- chunk 以 MPNet tokenizer 计数：目标 300 token、最大 360 token、最小 80 token，相邻块重叠 2 个完整句子
+- `all-mpnet-base-v2` passage、sentence、entity 向量已生成
+- LinearRAG 图已生成：11,566 个节点、63,517 条边
+- 七册端到端问答已完成：14 个问题，LLM Accuracy 35.71%，Contain Accuracy 42.86%
+- 当前环境已在 NVIDIA GeForce RTX 3090、PyTorch 2.1.2+cu121 上验证
 
 ## 目录结构
 
 ```text
 .
-├── Book/                         # 本地原始书籍，不提交
-├── dataset/harrypotter/          # 生成的数据，不提交；示例文件除外
-├── docs/                         # 数据格式与上游说明
+├── 原始数据/                     # 七本原始 PDF
+├── cleanUP/                      # PDF 正文清洗脚本、TXT 和清洗报告
+├── dataset/harrypotter/          # 6,865 个 chunk、14 个问题和数据清单
+├── import/harrypotter/           # GraphML、NER 结果与三类向量索引
+├── results/harrypotter/          # 预测、日志与评测结果
+├── model/all-mpnet-base-v2/      # 本地 embedding 模型
+├── docs/                         # 数据格式、实验记录与上游说明
 ├── figure/                       # LinearRAG 上游示意图
-├── model/                        # 本地向量模型，不提交
-├── scripts/                      # 环境、模型和运行脚本
+├── scripts/                      # 环境、数据准备和运行脚本
 ├── src/                          # LinearRAG 核心代码
-├── .env.example                  # 环境变量示例
 ├── environment.yml              # Conda 基础环境
 ├── requirements.txt             # Python 依赖
 └── run.py                        # 主入口
 ```
 
-## 快速开始
+工作目录中的 LinearRAG 论文 PDF 也随实验快照保存。
 
-### 1. 克隆并安装
+## 克隆完整仓库
 
-Linux + NVIDIA GPU 推荐直接运行：
+仓库包含 Git LFS 文件。克隆前先安装 Git LFS：
 
 ```bash
+sudo apt-get install git-lfs
+git lfs install
 git clone https://github.com/Robin-Ascholar/KE-project.git
 cd KE-project
+git lfs pull
+```
+
+如果只需要源码，可跳过 `git lfs pull`，此时模型权重和 Parquet 文件只是 LFS 指针。
+
+## 配置运行环境
+
+Linux + NVIDIA GPU 推荐运行：
+
+```bash
 bash scripts/setup_environment.sh
 conda activate linearrag
+python scripts/check_environment.py
 ```
 
-脚本会创建 Python 3.9 环境、安装 CUDA 12.1 版 PyTorch、项目依赖和 spaCy 模型，并下载 `all-mpnet-base-v2` 到 `model/`。
+脚本会创建 Python 3.9 环境，安装 CUDA 12.1 版 PyTorch、项目依赖、`en_core_web_trf` 和 `all-mpnet-base-v2`。仓库已经包含 embedding 模型；下载脚本会复用完整文件或补齐缺失文件。
 
-如果环境已经存在，可以逐步安装：
+当前验证环境：
+
+```text
+Python: 3.9
+PyTorch: 2.1.2+cu121
+GPU: NVIDIA GeForce RTX 3090
+spaCy model: en_core_web_trf 3.6.1
+Embedding model: sentence-transformers/all-mpnet-base-v2
+Embedding dimension: 768
+SentenceTransformer max_seq_length: 384
+```
+
+## 从 PDF 重新生成数据
+
+### 1. 清洗七本 PDF
 
 ```bash
-conda env create -f environment.yml
-conda activate linearrag
-python -m pip install torch==2.1.2 torchvision==0.16.2 \
-  --index-url https://download.pytorch.org/whl/cu121
-python -m pip install -r requirements.txt
-python -m spacy download en_core_web_trf
-python scripts/download_embedding_model.py
+python cleanUP/clean_pdf.py --overwrite
 ```
 
-### 2. 配置 LLM
+默认从 `原始数据/` 读取 PDF，输出到 `cleanUP/txt/`。每本书生成一个 UTF-8 TXT 和一个清洗报告 JSON。详细规则见 [cleanUP/README.md](cleanUP/README.md)。
+
+### 2. 合并并切分七本书
 
 ```bash
-cp .env.example .env
+python scripts/prepare_all_books.py
 ```
 
-`run.py` 读取环境变量，不会自动读取 `.env`。运行前请执行：
-
-```bash
-export OPENAI_API_KEY="your-api-key"
-# 使用 OpenAI 兼容服务时再设置：
-export OPENAI_BASE_URL="https://your-compatible-endpoint/v1"
-```
-
-不要提交 `.env` 或真实密钥。
-
-### 3. 准备本地书籍与数据
-
-将有权使用的 PDF 放到 `Book/`。原始书籍不会上传到公开仓库，团队成员需要从获授权渠道各自取得。
-
-LinearRAG 当前读取：
+脚本读取 `cleanUP/txt/*.txt` 和对应的 `*.report.json`，按章节和完整句子切分，输出：
 
 ```text
 dataset/harrypotter/chunks.json
 dataset/harrypotter/questions.json
+dataset/harrypotter/manifest.json
 ```
 
-具体格式见 [docs/DATA_FORMAT.md](docs/DATA_FORMAT.md)。
+切分参数可以通过 `--target-tokens`、`--max-tokens`、`--min-tokens` 和 `--overlap-sentences` 调整。当前数据集使用 `300 / 360 / 80 / 2`。格式详见 [docs/DATA_FORMAT.md](docs/DATA_FORMAT.md)。
 
-第一册数据可通过脚本生成：
+## 运行端到端实验
 
-```bash
-python scripts/prepare_harry_potter.py
-```
-
-该脚本会自动移除重复页眉和页码、识别章节，并生成适配 MPNet 384-token 上限的重叠文本块。生成语料保留在本地，不会提交到 Git。
-
-不调用 LLM API 的建图与检索检查：
+### OpenAI 或兼容接口
 
 ```bash
-python scripts/index_and_test.py
-```
+export OPENAI_API_KEY="your-api-key"
+export OPENAI_BASE_URL="https://your-compatible-endpoint/v1"  # 官方 OpenAI 可不设置
 
-### 4. 运行
-
-```bash
 python run.py \
   --spacy_model en_core_web_trf \
   --embedding_model model/all-mpnet-base-v2 \
   --dataset_name harrypotter \
   --llm_model gpt-4o-mini \
   --max_workers 4 \
-  --retrieval_top_k 8
+  --retrieval_top_k 5
 ```
 
-首次运行会在 `import/harrypotter/` 建立索引，并把结果写入 `results/harrypotter/`。这两个目录均为本地产物。
+### 本次本地 Ollama 实验
+
+服务器已有 `qwen2.5:7b`。通过 Ollama 的 OpenAI 兼容接口运行：
+
+```bash
+export OPENAI_API_KEY="ollama"
+export OPENAI_BASE_URL="http://127.0.0.1:11434/v1"
+
+python run.py \
+  --spacy_model en_core_web_trf \
+  --embedding_model model/all-mpnet-base-v2 \
+  --dataset_name harrypotter \
+  --llm_model qwen2.5:7b \
+  --max_workers 2 \
+  --max_iterations 3 \
+  --iteration_threshold 0.4 \
+  --passage_ratio 2 \
+  --top_k_sentence 3 \
+  --retrieval_top_k 20 \
+  --use_vectorized_retrieval
+```
+
+首次建图或语料改变后，LinearRAG 会在 `import/harrypotter/` 写入索引。当前仓库已经包含完成的索引，未改变数据时会复用缓存。不要把不同语料放在相同的 `dataset_name` 下复用旧索引。
+
+## 图谱与实验结果
+
+主图谱：
+
+```text
+import/harrypotter/LinearRAG.graphml
+```
+
+该文件可用 Gephi、Cytoscape 或支持 GraphML 的 Python 图工具打开。相关索引包括：
+
+```text
+import/harrypotter/passage_embedding.parquet
+import/harrypotter/sentence_embedding.parquet
+import/harrypotter/entity_embedding.parquet
+import/harrypotter/ner_results.json
+```
+
+本次结果保存在：
+
+```text
+results/harrypotter/2026-09-07_15-06-11/
+```
+
+其中 `predictions.json` 保存问题、召回 passage、分数、参考答案和模型回答，`evaluation_results.json` 保存最终指标。目录由 `harrypotter_all` 改名而来，因此历史 `log.txt` 中仍保留原运行时数据集名称，不影响索引或结果。
+
+完整实验说明见 [docs/EXPERIMENT.md](docs/EXPERIMENT.md)。
+
+## 与论文官方实验的差异
+
+当前实验验证了 LinearRAG 在七本小说上的完整流程，但不是论文四个官方 benchmark 的严格指标复现。官方发布的多跳数据通常采用约 1,000-token passage 和 100-token overlap，并使用 Top-5 与 GPT-4o-mini；本项目采用不跨章节的 300-token passage、2 句重叠、Top-20 与本地 `qwen2.5:7b`。这些差异应在实验报告中明确说明。
 
 ## 上游项目与许可
 
-本项目基于 DEEP-PolyU 的 LinearRAG，当前导入基线为提交 `bcc94e66c221f798801255efba09311d6fbcd8d6`。原始说明保存在 [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md)，修改与归属见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+本项目基于 DEEP-PolyU 的 LinearRAG，导入基线为提交 `bcc94e66c221f798801255effba09311d6fbcd8d6`。原始说明保存在 [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md)，修改与归属见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 由于上游代码采用 GPL-3.0，本仓库中的派生代码同样按 [GPL-3.0](LICENSE) 分发。
