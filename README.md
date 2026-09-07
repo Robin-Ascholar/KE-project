@@ -116,9 +116,22 @@ python run.py \
   --retrieval_top_k 5
 ```
 
-### 本次本地 Ollama 实验
+### 当前本地 Ollama 问答模型
 
-服务器已有 `qwen2.5:7b`。通过 Ollama 的 OpenAI 兼容接口运行：
+服务器已部署 `deepseek-ocr:latest`。该模型是支持文本与图片输入的 3B 视觉语言模型，Ollama 包大小约 6.7 GB、上下文窗口 8K。安装与确认命令：
+
+```bash
+ollama pull deepseek-ocr:latest
+ollama list
+```
+
+项目已将它设为默认问答模型，并为它使用单轮、仅返回答案的兼容提示。直接运行：
+
+```bash
+bash scripts/run.sh
+```
+
+等价的显式命令为：
 
 ```bash
 export OPENAI_API_KEY="ollama"
@@ -128,15 +141,15 @@ python run.py \
   --spacy_model en_core_web_trf \
   --embedding_model model/all-mpnet-base-v2 \
   --dataset_name harrypotter \
-  --llm_model qwen2.5:7b \
+  --llm_model deepseek-ocr:latest \
+  --llm_max_tokens 128 \
+  --llm_timeout 240 \
   --max_workers 2 \
-  --max_iterations 3 \
-  --iteration_threshold 0.4 \
-  --passage_ratio 2 \
-  --top_k_sentence 3 \
-  --retrieval_top_k 20 \
+  --retrieval_top_k 8 \
   --use_vectorized_retrieval
 ```
+
+DeepSeek-OCR 的主要用途是文档 OCR，当前纯文本问答属于实验性用法。真实 Top-8 召回烟雾测试已通过；若追求问答质量，应将它与通用指令模型的结果单独比较。现有 `2026-09-07_15-06-11` 结果仍是 `qwen2.5:7b` 生成的历史快照。
 
 首次建图或语料改变后，LinearRAG 会在 `import/harrypotter/` 写入索引。当前仓库已经包含完成的索引，未改变数据时会复用缓存。不要把不同语料放在相同的 `dataset_name` 下复用旧索引。
 
@@ -163,9 +176,18 @@ import/harrypotter/ner_results.json
 results/harrypotter/2026-09-07_15-06-11/
 ```
 
-其中 `predictions.json` 保存问题、召回 passage、分数、参考答案和模型回答，`evaluation_results.json` 保存最终指标。目录由 `harrypotter_all` 改名而来，因此历史 `log.txt` 中仍保留原运行时数据集名称，不影响索引或结果。
+其中 `predictions.json` 保存问题、召回 passage、分数、参考答案和模型回答，`evaluation_results.json` 保存原运行流程生成的指标。目录由 `harrypotter_all` 改名而来，因此历史 `log.txt` 中仍保留原运行时数据集名称，不影响索引或结果。
 
-完整实验说明见 [docs/EXPERIMENT.md](docs/EXPERIMENT.md)。
+论文公开代码包含 Contain-Acc 和 GPT-Acc 的判分逻辑与提示词，但 GPT-4o-mini 是外部 API 模型，仓库不含模型权重。本项目增加了可审计的本地论文式评分器：
+
+```bash
+python scripts/evaluate_predictions.py \
+  --provider ollama \
+  --judge-model qwen3.6:27b \
+  --predictions results/harrypotter/2026-09-07_15-06-11/predictions.json
+```
+
+评分器会计算论文定义的规范化 Contain-Acc，并让本地 LLM 按“包含参考答案关键信息、事实一致、无矛盾内容”三项规则判分。详细说明见 [docs/EXPERIMENT.md](docs/EXPERIMENT.md)。
 
 ## 与论文官方实验的差异
 

@@ -15,8 +15,9 @@ def compute_mdhash_id(content: str, prefix: str = "") -> str:
     return prefix + md5(content.encode()).hexdigest()
 
 class LLM_Model:
-    def __init__(self, llm_model):
-        http_client = httpx.Client(timeout=60.0, trust_env=False)
+    def __init__(self, llm_model, max_tokens=128, timeout=240.0):
+        self.model_name = llm_model
+        http_client = httpx.Client(timeout=timeout, trust_env=False)
         self.openai_client = OpenAI(
             api_key=os.getenv("OPENAI_API_KEY"),
             base_url=os.getenv("OPENAI_BASE_URL"),
@@ -24,7 +25,7 @@ class LLM_Model:
         )
         self.llm_config = {
             "model": llm_model,
-            "max_tokens": 2000,
+            "max_tokens": max_tokens,
             "temperature": 0,
         }
     def infer(self, messages):

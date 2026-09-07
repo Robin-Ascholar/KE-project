@@ -19,8 +19,10 @@ def parse_arguments():
     parser.add_argument("--spacy_model", type=str, default="en_core_web_trf", help="The spacy model to use")
     parser.add_argument("--embedding_model", type=str, default="model/all-mpnet-base-v2", help="The path of embedding model to use")
     parser.add_argument("--dataset_name", type=str, default="novel", help="The dataset to use")
-    parser.add_argument("--llm_model", type=str, default="gpt-4o-mini", help="The LLM model to use")
-    parser.add_argument("--max_workers", type=int, default=16, help="The max number of workers to use")
+    parser.add_argument("--llm_model", type=str, default="deepseek-ocr:latest", help="The QA model to use")
+    parser.add_argument("--llm_max_tokens", type=int, default=128, help="Maximum generated tokens per QA response")
+    parser.add_argument("--llm_timeout", type=float, default=240.0, help="LLM request timeout in seconds")
+    parser.add_argument("--max_workers", type=int, default=2, help="The max number of workers to use")
     parser.add_argument("--max_iterations", type=int, default=3, help="The max number of iterations to use")
     parser.add_argument("--iteration_threshold", type=float, default=0.4, help="The threshold for iteration")
     parser.add_argument("--passage_ratio", type=float, default=2, help="The ratio for passage")
@@ -52,7 +54,7 @@ def main():
     embedding_model = load_embedding_model(args.embedding_model)
     questions,passages = load_dataset(args.dataset_name)
     setup_logging(f"results/{args.dataset_name}/{time_str}/log.txt")
-    llm_model = LLM_Model(args.llm_model)
+    llm_model = LLM_Model(args.llm_model, max_tokens=args.llm_max_tokens, timeout=args.llm_timeout)
     config = LinearRAGConfig(
         dataset_name=args.dataset_name,
         embedding_model=embedding_model,

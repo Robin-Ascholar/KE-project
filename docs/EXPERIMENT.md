@@ -26,6 +26,19 @@ conda activate linearrag
 python scripts/check_environment.py
 ```
 
+### 当前 DeepSeek-OCR 问答配置
+
+在上述历史实验之后，服务器 Ollama 已新增 `deepseek-ocr:latest`，代码默认问答模型也已切换到该模型：
+
+```bash
+ollama pull deepseek-ocr:latest
+bash scripts/run.sh
+```
+
+`run.py` 默认使用 `--llm_model deepseek-ocr:latest`、`--llm_max_tokens 128` 和 `--llm_timeout 240`。`src/LinearRAG.py` 会识别 `deepseek-ocr` 模型并使用单轮直接回答提示，因为原有的 `Thought:` 链式提示会使该 OCR 模型在长文本上重复问题。使用真实 Top-8 检索段落的烟雾测试输出为 `The Triwizard Cup.`，参考答案为 `The Triwizard Cup`。
+
+DeepSeek-OCR 是视觉 OCR 模型，纯文本 RAG 问答不属于其主要训练用途。以下已有指标仍对应 qwen2.5:7b 历史运行；切换模型后需要重新运行 14 个问题，才能得到新的可比较结果。
+
 ## 数据清洗
 
 原始文件位于 `原始数据/`。执行：
@@ -133,12 +146,40 @@ python run.py \
 results/harrypotter/2026-09-07_15-06-11/
 ```
 
-当前指标：
+原运行流程生成的指标：
 
 | 指标 | 结果 |
 |---|---:|
 | LLM Accuracy | 35.71%（5/14） |
 | Contain Accuracy | 42.86%（6/14） |
+
+### 论文式本地评分器
+
+论文公开代码的 `src/evaluate.py` 已包含两种指标的实现：Contain-Acc 对规范化后的预测与参考答案做包含检查；GPT-Acc 把参考答案和模型回答交给 LLM，要求同时满足“包含关键信息、事实准确且一致、没有矛盾信息”。代码只调用外部推理接口，没有附带 GPT-4o-mini 的模型权重。
+
+本项目新增 `src/paper_evaluator.py` 和 `scripts/evaluate_predictions.py`。默认通过 Ollama 原生接口关闭思考输出，以免推理 token 截断最终标签；也支持 `--provider openai` 调用 OpenAI 兼容服务。评分结果保留裁判原始返回和解析错误，便于审计。
+
+```bash
+conda activate linearrag
+python scripts/evaluate_predictions.py \
+  --provider ollama \
+  --judge-model qwen3.6:27b \
+  --base-url http://127.0.0.1:11434/v1 \
+  --workers 1 \
+  --predictions results/harrypotter/2026-09-07_15-06-11/predictions.json \
+  --output results/harrypotter/2026-09-07_15-06-11/predictions.paper-scored.qwen3.6-27b.json \
+  --summary results/harrypotter/2026-09-07_15-06-11/evaluation_results.paper-local.qwen3.6-27b.json
+```
+
+本地复评结果：
+
+| 指标 | 结果 |
+|---|---:|
+| Local LLM Judge Accuracy（qwen3.6:27b） | 42.86%（6/14） |
+| Paper Contain-Acc | 42.86%（6/14） |
+| 裁判调用或解析失败 | 0/14 |
+
+本地 Qwen 裁判遵循论文判分内容，可用于离线端到端验证和结果检查；其绝对分数不能当作论文 GPT-4o-mini 的 GPT-Acc。若要严格复现论文数值，需要用论文相同的 GPT-4o-mini 裁判重新运行，并记录模型版本与日期。
 
 补充召回检查显示：Top-20 passage 中有 9/14 个问题包含答案证据，扩展到 Top-100 后为 12/14；其余两个问题的参考答案文本没有以预期形式出现在清洗语料中。
 

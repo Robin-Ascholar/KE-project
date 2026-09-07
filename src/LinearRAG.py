@@ -52,19 +52,27 @@ class LinearRAG:
 
     def qa(self, questions):
         retrieval_results = self.retrieve(questions)
-        system_prompt = f"""As an advanced reading comprehension assistant, your task is to analyze text passages and corresponding questions meticulously. Your response start after "Thought: ", where you will methodically break down the reasoning process, illustrating how you arrive at conclusions. Conclude with "Answer: " to present a concise, definitive response, devoid of additional elaborations."""
+        is_ocr_model = self.llm_model.model_name.lower().startswith("deepseek-ocr")
+        system_prompt = """As an advanced reading comprehension assistant, your task is to analyze text passages and corresponding questions meticulously. Your response start after "Thought: ", where you will methodically break down the reasoning process, illustrating how you arrive at conclusions. Conclude with "Answer: " to present a concise, definitive response, devoid of additional elaborations."""
         all_messages = []
         for retrieval_result in retrieval_results:
             question = retrieval_result["question"]
             sorted_passage = retrieval_result["sorted_passage"]
-            prompt_user = """"""
-            for passage in sorted_passage:
-                prompt_user += f"{passage}\n"
-            prompt_user += f"Question: {question}\n Thought: "
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt_user}
-            ]
+            passages = "\n\n".join(sorted_passage)
+            if is_ocr_model:
+                # DeepSeek-OCR is sensitive to chat scaffolding. A single, direct
+                # text prompt avoids the repetition seen with chain-of-thought prompts.
+                prompt_user = (
+                    "Use the context to answer the question. Reply with the answer only.\n\n"
+                    f"Context:\n{passages}\n\nQuestion: {question}\nAnswer:"
+                )
+                messages = [{"role": "user", "content": prompt_user}]
+            else:
+                prompt_user = f"{passages}\nQuestion: {question}\n Thought: "
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt_user},
+                ]
             all_messages.append(messages)
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             all_qa_results = list(tqdm(
@@ -73,12 +81,11 @@ class LinearRAG:
                 desc="QA Reading (Parallel)"
             ))
 
-        for qa_result,question_info in zip(all_qa_results,retrieval_results):
-            try:
-                pred_ans = qa_result.split('Answer:')[1].strip()
-            except:
-                pred_ans = qa_result
-            question_info["pred_answer"] = pred_ans
+        for qa_result, question_info in zip(all_qa_results, retrieval_results):
+            response_text = str(qa_result or "").strip()
+            if "Answer:" in response_text:
+                response_text = response_text.rsplit("Answer:", 1)[1].strip()
+            question_info["pred_answer"] = response_text
         return retrieval_results
 
     def retrieve(self, questions):
@@ -125,6 +132,9 @@ class LinearRAG:
                 "sorted_passage_scores": final_passage_scores,
                 "gold_answer": question_info["answer"]
             }
+            for annotation_key in ("reasoning_path", "supporting_facts", "gold_evidence", "evidence"):
+                if annotation_key in question_info:
+                    result[annotation_key] = question_info[annotation_key]
             retrieval_results.append(result)
         return retrieval_results
 
