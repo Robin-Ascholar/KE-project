@@ -52,16 +52,18 @@ class LinearRAG:
 
     def qa(self, questions):
         retrieval_results = self.retrieve(questions)
-        is_ocr_model = self.llm_model.model_name.lower().startswith("deepseek-ocr")
+        model_name = self.llm_model.model_name.lower()
+        is_ocr_model = model_name.startswith("deepseek-ocr")
+        is_answer_only_model = is_ocr_model or model_name.startswith("qwen")
         system_prompt = """As an advanced reading comprehension assistant, your task is to analyze text passages and corresponding questions meticulously. Your response start after "Thought: ", where you will methodically break down the reasoning process, illustrating how you arrive at conclusions. Conclude with "Answer: " to present a concise, definitive response, devoid of additional elaborations."""
         all_messages = []
         for retrieval_result in retrieval_results:
             question = retrieval_result["question"]
             sorted_passage = retrieval_result["sorted_passage"]
             passages = "\n\n".join(sorted_passage)
-            if is_ocr_model:
-                # DeepSeek-OCR is sensitive to chat scaffolding. A single, direct
-                # text prompt avoids the repetition seen with chain-of-thought prompts.
+            if is_answer_only_model:
+                # Local Ollama models are more reliable with a direct answer-only
+                # prompt; it also prevents reasoning text from exhausting the token cap.
                 prompt_user = (
                     "Use the context to answer the question. Reply with the answer only.\n\n"
                     f"Context:\n{passages}\n\nQuestion: {question}\nAnswer:"
