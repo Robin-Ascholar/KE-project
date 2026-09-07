@@ -13,6 +13,7 @@ __pycache__/
 .pytest_cache/
 .idea/
 .vscode/
+.agents/
 .DS_Store
 
 # Alternative local source-book locations (the current 原始数据/ snapshot is tracked)
@@ -28,6 +29,7 @@ dataset/*
 !dataset/README.md
 !dataset/harrypotter/
 dataset/harrypotter/*
+!dataset/harrypotter/book*.json
 !dataset/harrypotter/questions.example.json
 !dataset/harrypotter/retrieval_checks.example.json
 
