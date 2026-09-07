@@ -161,6 +161,8 @@ python scripts/run_question_sets.py
 
 中断后给出原 `--output-dir` 即可从检查点继续。每套预测、合并文件、评分明细、指标汇总和进度清单都保存在同一个 `results/harrypotter/batch_*` 目录；完整参数与输出结构见 [docs/EVALUATION.md](docs/EVALUATION.md)。
 
+当前 Qwen2.5:7b 全量问答的错误来源、检索条件分析和改进建议见 [docs/QWEN25_ERROR_ANALYSIS.md](docs/QWEN25_ERROR_ANALYSIS.md)。
+
 首次建图或语料改变后，LinearRAG 会在 `import/harrypotter/` 写入索引。当前仓库已经包含完成的索引，未改变数据时会复用缓存。不要把不同语料放在相同的 `dataset_name` 下复用旧索引。
 
 ## 图谱与实验结果
