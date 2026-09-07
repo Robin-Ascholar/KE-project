@@ -259,7 +259,11 @@ def main() -> None:
         if not isinstance(checkpoint, list) or len(checkpoint) != len(records):
             raise ValueError("Existing evaluation checkpoint does not match prediction count")
         for index, row in enumerate(checkpoint):
-            if row.get("question") != records[index].get("question"):
+            source = records[index]
+            identity_keys = ("question", "pred_answer", "generated_answer", "gold_answer", "answer")
+            if any(row.get(key) != source.get(key) for key in identity_keys):
+                if row.get("question") == source.get("question"):
+                    continue
                 raise ValueError(f"Existing evaluation checkpoint mismatch at row {index}")
             if is_complete(row):
                 scored_records[index] = row

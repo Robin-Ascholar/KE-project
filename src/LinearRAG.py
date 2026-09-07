@@ -81,6 +81,31 @@ class LinearRAG:
                 desc="QA Reading (Parallel)"
             ))
 
+        # Ollama can occasionally return an empty response under concurrent load.
+        # Retry only failed items so a transient response is not scored as an answer.
+        for retry_attempt in range(1, 3):
+            empty_indices = [index for index, value in enumerate(all_qa_results) if not str(value or "").strip()]
+            if not empty_indices:
+                break
+            logger.warning(f"Retrying {len(empty_indices)} empty QA responses (attempt {retry_attempt}/2)")
+            if is_ocr_model:
+                fallback_top_k = 4 if retry_attempt == 1 else 2
+                retry_messages = []
+                for index in empty_indices:
+                    retry_context = "\n\n".join(retrieval_results[index]["sorted_passage"][:fallback_top_k])
+                    retry_prompt = (
+                        "Use the context to answer the question. Reply with the answer only.\n\n"
+                        f"Context:\n{retry_context}\n\nQuestion: {retrieval_results[index]['question']}\nAnswer:"
+                    )
+                    retry_messages.append([{"role": "user", "content": retry_prompt}])
+            else:
+                retry_messages = [all_messages[index] for index in empty_indices]
+            # Serialize retries because empty Ollama responses correlate with load.
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                retry_results = list(executor.map(self.llm_model.infer, retry_messages))
+            for index, value in zip(empty_indices, retry_results):
+                all_qa_results[index] = value
+
         for qa_result, question_info in zip(all_qa_results, retrieval_results):
             response_text = str(qa_result or "").strip()
             if "Answer:" in response_text:
