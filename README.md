@@ -151,6 +151,16 @@ python run.py \
 
 DeepSeek-OCR 的主要用途是文档 OCR，当前纯文本问答属于实验性用法。真实 Top-8 召回烟雾测试已通过；若追求问答质量，应将它与通用指令模型的结果单独比较。现有 `2026-09-07_15-06-11` 结果仍是 `qwen2.5:7b` 生成的历史快照。
 
+### 批量测试 `dataset/question`
+
+七个 `bookN.json` 问题集共 1,000 道题。批量入口会逐套运行、每 10 题保存检查点、合并预测，并自动调用综合评分器：
+
+```bash
+python scripts/run_question_sets.py
+```
+
+中断后给出原 `--output-dir` 即可从检查点继续。每套预测、合并文件、评分明细、指标汇总和进度清单都保存在同一个 `results/harrypotter/batch_*` 目录；完整参数与输出结构见 [docs/EVALUATION.md](docs/EVALUATION.md)。
+
 首次建图或语料改变后，LinearRAG 会在 `import/harrypotter/` 写入索引。当前仓库已经包含完成的索引，未改变数据时会复用缓存。不要把不同语料放在相同的 `dataset_name` 下复用旧索引。
 
 ## 图谱与实验结果

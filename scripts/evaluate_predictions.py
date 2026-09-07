@@ -130,7 +130,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--embedding-device", default="cpu")
     parser.add_argument("--output", type=Path, help="Scored prediction JSON output path")
     parser.add_argument("--summary", type=Path, help="Evaluation summary JSON output path")
+    parser.add_argument("--resume", action="store_true", help="Resume completed rows from an existing output file")
+    parser.add_argument("--checkpoint-every", type=int, default=10, help="Save progress after this many completed rows")
     return parser.parse_args()
+
+
+def _atomic_write_json(path: Path, value: Any) -> None:
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
 
 
 def _mean(rows: List[Dict[str, Any]], key: str) -> Optional[float]:
@@ -236,9 +244,32 @@ def main() -> None:
                 row["rag_judge_error"] = f"{type(exc).__name__}: {exc}"
         return index, row
 
+    def is_complete(row: Dict[str, Any]) -> bool:
+        if "paper_contain_accuracy" not in row:
+            return False
+        if args.contain_only:
+            return True
+        answer_done = "local_judge_accuracy" in row or "local_judge_error" in row
+        rag_done = args.skip_rag_metrics or "context_relevance" in row or "rag_judge_error" in row
+        return answer_done and rag_done
+
     scored_records: List[Optional[Dict[str, Any]]] = [None] * len(records)
+    if args.resume and output_path.exists():
+        checkpoint = json.loads(output_path.read_text(encoding="utf-8"))
+        if not isinstance(checkpoint, list) or len(checkpoint) != len(records):
+            raise ValueError("Existing evaluation checkpoint does not match prediction count")
+        for index, row in enumerate(checkpoint):
+            if row.get("question") != records[index].get("question"):
+                raise ValueError(f"Existing evaluation checkpoint mismatch at row {index}")
+            if is_complete(row):
+                scored_records[index] = row
+
+    pending = [index for index, row in enumerate(scored_records) if row is None]
+    if len(pending) != len(records):
+        print(f"Resuming evaluation: {len(records) - len(pending)}/{len(records)} rows complete")
+    completed_since_save = 0
     with ThreadPoolExecutor(max_workers=max(1, args.workers)) as executor:
-        futures = {executor.submit(evaluate_one, index, row): index for index, row in enumerate(records)}
+        futures = {executor.submit(evaluate_one, index, records[index]): index for index in pending}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Comprehensive RAG evaluation"):
             index = futures[future]
             try:
@@ -247,6 +278,11 @@ def main() -> None:
                 row = dict(records[index])
                 row["evaluation_error"] = f"{type(exc).__name__}: {exc}"
                 scored_records[index] = row
+            completed_since_save += 1
+            if args.checkpoint_every > 0 and completed_since_save >= args.checkpoint_every:
+                checkpoint_rows = [scored_records[i] if scored_records[i] is not None else dict(records[i]) for i in range(len(records))]
+                _atomic_write_json(output_path, checkpoint_rows)
+                completed_since_save = 0
 
     rows: List[Dict[str, Any]] = [row for row in scored_records if row is not None]
     semantic_error = None
@@ -317,8 +353,8 @@ def main() -> None:
         "semantic_similarity_error": semantic_error,
         "scored_at_utc": datetime.now(timezone.utc).isoformat(),
     }
-    output_path.write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _atomic_write_json(output_path, rows)
+    _atomic_write_json(summary_path, summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     print(f"Scored predictions: {output_path}")
     print(f"Summary: {summary_path}")

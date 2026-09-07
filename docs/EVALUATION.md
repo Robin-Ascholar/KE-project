@@ -104,3 +104,27 @@ Exact Match 为零的主要原因是参考答案很短，而正确预测通常�
 ## 论文中的效率指标
 
 论文还报告索引时间、平均检索时间、prompt token、completion token、图规模和复杂度。这些属于运行效率与可扩展性指标，不能从已有 `predictions.json` 准确反推，因此综合评分器不会伪造数值。后续严格效率实验应在运行时记录这些数据，并固定硬件、并发、Top-k、模型版本和语料规模。
+
+## 批量运行七套问题
+
+`dataset/question/book1.json` 到 `book7.json` 共包含 1,000 条 `question`/`answer` 记录。以下命令只初始化一次 embedding 模型和 `import/harrypotter` 图索引，随后按文件顺序逐套问答，最后合并并执行综合评分：
+
+```bash
+conda activate linearrag
+python scripts/run_question_sets.py \
+  --question-dir dataset/question \
+  --dataset-name harrypotter \
+  --llm-model deepseek-ocr:latest \
+  --judge-model qwen3.6:27b
+```
+
+每 10 道题会保存一次问答检查点。输出目录形如 `results/harrypotter/batch_YYYY-MM-DD_HH-MM-SS/`，其中每套结果位于 `sets/bookN/predictions.json`，合并结果为 `combined_predictions.json`，评分明细和汇总分别为 `combined_predictions.scored.json` 与 `evaluation_results.json`。
+
+如运行中断，使用原输出目录即可续跑问答和评分：
+
+```bash
+python scripts/run_question_sets.py \
+  --output-dir results/harrypotter/batch_YYYY-MM-DD_HH-MM-SS
+```
+
+`run_manifest.json` 的 `status` 和各问题集的 `completed` 字段记录当前进度。仅做快速流程检查时可使用 `--sets book1 --limit-per-set 1`；只生成和合并回答可添加 `--no-evaluate`。

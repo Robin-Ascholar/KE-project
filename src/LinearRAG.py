@@ -89,27 +89,30 @@ class LinearRAG:
         return retrieval_results
 
     def retrieve(self, questions):
-        self.entity_hash_ids = list(self.entity_embedding_store.hash_id_to_text.keys())
-        self.entity_embeddings = np.array(self.entity_embedding_store.embeddings)
-        self.passage_hash_ids = list(self.passage_embedding_store.hash_id_to_text.keys())
-        self.passage_embeddings = np.array(self.passage_embedding_store.embeddings)
-        self.sentence_hash_ids = list(self.sentence_embedding_store.hash_id_to_text.keys())
-        self.sentence_embeddings = np.array(self.sentence_embedding_store.embeddings)
-        self.node_name_to_vertex_idx = {v["name"]: v.index for v in self.graph.vs if "name" in v.attributes()}
-        self.vertex_idx_to_node_name = {v.index: v["name"] for v in self.graph.vs if "name" in v.attributes()}
+        # A batch run calls retrieve() repeatedly to checkpoint progress. The graph
+        # runtime and sparse matrices are immutable after index(), so build them once.
+        if not getattr(self, "_retrieval_runtime_ready", False):
+            self.entity_hash_ids = list(self.entity_embedding_store.hash_id_to_text.keys())
+            self.entity_embeddings = np.array(self.entity_embedding_store.embeddings)
+            self.passage_hash_ids = list(self.passage_embedding_store.hash_id_to_text.keys())
+            self.passage_embeddings = np.array(self.passage_embedding_store.embeddings)
+            self.sentence_hash_ids = list(self.sentence_embedding_store.hash_id_to_text.keys())
+            self.sentence_embeddings = np.array(self.sentence_embedding_store.embeddings)
+            self.node_name_to_vertex_idx = {v["name"]: v.index for v in self.graph.vs if "name" in v.attributes()}
+            self.vertex_idx_to_node_name = {v.index: v["name"] for v in self.graph.vs if "name" in v.attributes()}
 
-        # Precompute sparse matrices for vectorized retrieval if needed
-        if self.config.use_vectorized_retrieval:
-            logger.info("Precomputing sparse adjacency matrices for vectorized retrieval...")
-            self._precompute_sparse_matrices()
-            e2s_shape = self.entity_to_sentence_sparse.shape
-            s2e_shape = self.sentence_to_entity_sparse.shape
-            e2s_nnz = self.entity_to_sentence_sparse._nnz()
-            s2e_nnz = self.sentence_to_entity_sparse._nnz()
-            logger.info(f"Matrices built: Entity-Sentence {e2s_shape}, Sentence-Entity {s2e_shape}")
-            logger.info(f"E2S Sparsity: {(1 - e2s_nnz / (e2s_shape[0] * e2s_shape[1])) * 100:.2f}% (nnz={e2s_nnz})")
-            logger.info(f"S2E Sparsity: {(1 - s2e_nnz / (s2e_shape[0] * s2e_shape[1])) * 100:.2f}% (nnz={s2e_nnz})")
-            logger.info(f"Device: {self.device}")
+            if self.config.use_vectorized_retrieval:
+                logger.info("Precomputing sparse adjacency matrices for vectorized retrieval...")
+                self._precompute_sparse_matrices()
+                e2s_shape = self.entity_to_sentence_sparse.shape
+                s2e_shape = self.sentence_to_entity_sparse.shape
+                e2s_nnz = self.entity_to_sentence_sparse._nnz()
+                s2e_nnz = self.sentence_to_entity_sparse._nnz()
+                logger.info(f"Matrices built: Entity-Sentence {e2s_shape}, Sentence-Entity {s2e_shape}")
+                logger.info(f"E2S Sparsity: {(1 - e2s_nnz / (e2s_shape[0] * e2s_shape[1])) * 100:.2f}% (nnz={e2s_nnz})")
+                logger.info(f"S2E Sparsity: {(1 - s2e_nnz / (s2e_shape[0] * s2e_shape[1])) * 100:.2f}% (nnz={s2e_nnz})")
+                logger.info(f"Device: {self.device}")
+            self._retrieval_runtime_ready = True
 
         retrieval_results = []
         for question_info in tqdm(questions, desc="Retrieving"):
