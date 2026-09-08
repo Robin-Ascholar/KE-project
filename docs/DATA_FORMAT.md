@@ -1,6 +1,6 @@
 # Harry Potter 数据格式
 
-`run.py` 从 `dataset/<dataset_name>/` 读取 `chunks.json` 和 `questions.json`。当前七册数据集名称为 `harrypotter`。
+语料数据集位于 `dataset/harrypotter/`（`chunks.json` + `manifest.json`），完整问答问题集位于 `dataset/question/book1.json`–`book7.json`（1,000 题，由 `scripts/run_question_sets.py` 读取）。
 
 ## 生成数据
 
@@ -16,7 +16,6 @@ python scripts/prepare_all_books.py
 cleanUP/txt/*.txt                         # 七册清洗正文
 cleanUP/txt/*.report.json                 # 清洗和章节报告
 dataset/harrypotter/chunks.json           # 可检索 passage
-dataset/harrypotter/questions.json        # 问题与参考答案
 dataset/harrypotter/manifest.json         # 数据来源和切分清单
 ```
 
@@ -44,9 +43,9 @@ dataset/harrypotter/manifest.json         # 数据来源和切分清单
 
 当前文件包含 6,865 个字符串。
 
-## `questions.json`
+## 问题集（`dataset/question/`）
 
-顶层是对象数组，每项至少包含 `question` 和 `answer`：
+每册一个 `bookN.json`，顶层是对象数组，每项至少包含 `question` 和 `answer`：
 
 ```json
 [
@@ -57,14 +56,14 @@ dataset/harrypotter/manifest.json         # 数据来源和切分清单
 ]
 ```
 
-当前问题集包含 14 个覆盖七册情节的事实问题。`run.py` 会把 `answer` 作为评测参考答案，并将模型输出写入结果目录。
+`book1.json`–`book6.json` 各 143 题，`book7.json` 142 题，共 1,000 题；`answer` 作为评测参考答案。格式示例另见 `dataset/harrypotter/questions.example.json`。
 
 ## `manifest.json`
 
 清单记录：
 
 - embedding 模型路径和切分参数
-- 书籍、章节、chunk 和问题数量
+- 书籍与章节、chunk 数量
 - 每本清洗 TXT 的 SHA256
 - 每章标题与 chunk 序号
 - 每个 chunk 的实际 token 数

@@ -37,7 +37,7 @@ bash scripts/run.sh
 
 `run.py` 默认使用 `--llm_model deepseek-ocr:latest`、`--llm_max_tokens 128` 和 `--llm_timeout 240`。`src/LinearRAG.py` 会识别 `deepseek-ocr` 模型并使用单轮直接回答提示，因为原有的 `Thought:` 链式提示会使该 OCR 模型在长文本上重复问题。使用真实 Top-8 检索段落的烟雾测试输出为 `The Triwizard Cup.`，参考答案为 `The Triwizard Cup`。
 
-DeepSeek-OCR 是视觉 OCR 模型，纯文本 RAG 问答不属于其主要训练用途。以下已有指标仍对应 qwen2.5:7b 历史运行；切换模型后需要重新运行 14 个问题，才能得到新的可比较结果。
+DeepSeek-OCR 是视觉 OCR 模型，纯文本 RAG 问答不属于其主要训练用途。以下已有指标仍对应 qwen2.5:7b 历史运行；切换模型后需要重新运行完整问题集（1,000 题），才能得到新的可比较结果。
 
 ## 数据清洗
 
@@ -80,13 +80,12 @@ overlap_sentences: 2
 books: 7
 chapters: 199
 chunks: 6,865
-questions: 14
 minimum chunk tokens: 80
 average chunk tokens: 282.41
 maximum chunk tokens: 360
 ```
 
-`chunks.json` 是字符串数组，`questions.json` 是包含 `question` 与 `answer` 的对象数组，`manifest.json` 记录输入哈希、章节信息和每个 chunk 的 token 数。
+`chunks.json` 是字符串数组，`manifest.json` 记录输入哈希、章节信息和每个 chunk 的 token 数。问答问题集位于 `dataset/question/book1.json`–`book7.json`（1,000 题），示例问题见 `dataset/harrypotter/questions.example.json`。
 
 ## 建图结果
 
@@ -140,18 +139,28 @@ python run.py \
 
 ## 评测结果
 
-结果目录：
+完整实验（1,000 题）结果目录：
 
 ```text
-results/harrypotter/2026-09-07_15-06-11/
+results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/
 ```
 
-原运行流程生成的指标：
+其中 `combined_predictions.json` 为合并预测，`combined_predictions.scored.json` 为逐题评测（`local_judge_accuracy`/`local_judge_label` 为人工语义判定），`evaluation_results.deterministic.json` 为人工评测汇总。
 
-| 指标 | 结果 |
-|---|---:|
-| LLM Accuracy | 35.71%（5/14） |
-| Contain Accuracy | 42.86%（6/14） |
+人工逐题语义评测结果（模型 `qwen2.5:7b`）：
+
+| 分册 | 答对 | 正确率 |
+|---|---:|---:|
+| book1 | 77/143 | 53.8% |
+| book2 | 72/143 | 50.3% |
+| book3 | 85/143 | 59.4% |
+| book4 | 72/143 | 50.3% |
+| book5 | 84/143 | 58.7% |
+| book6 | 53/143 | 37.1% |
+| book7 | 49/142 | 34.5% |
+| **合计** | **492/1,000** | **49.2%** |
+
+判定口径：模型答案与参考答案语义一致即算对；"上下文未提及"式回避明确事实、答错人物/数字/情节或答非所问均判错。早期 14 题实验、其产物目录及自动打分结果已删除。错误模式与代表性示例见 [error_analysis/2026-09-08_qwen2.5-7b_full-1000_manual_review.md](../error_analysis/2026-09-08_qwen2.5-7b_full-1000_manual_review.md)。
 
 ### 论文式本地评分器
 
@@ -166,22 +175,14 @@ python scripts/evaluate_predictions.py \
   --judge-model qwen3.6:27b \
   --base-url http://127.0.0.1:11434/v1 \
   --workers 1 \
-  --predictions results/harrypotter/2026-09-07_15-06-11/predictions.json \
-  --output results/harrypotter/2026-09-07_15-06-11/predictions.paper-scored.qwen3.6-27b.json \
-  --summary results/harrypotter/2026-09-07_15-06-11/evaluation_results.paper-local.qwen3.6-27b.json
+  --predictions results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/combined_predictions.json \
+  --output results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/combined_predictions.scored.json \
+  --summary results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/evaluation_results.json
 ```
-
-本地复评结果：
-
-| 指标 | 结果 |
-|---|---:|
-| Local LLM Judge Accuracy（qwen3.6:27b） | 42.86%（6/14） |
-| Paper Contain-Acc | 42.86%（6/14） |
-| 裁判调用或解析失败 | 0/14 |
 
 本地 Qwen 裁判遵循论文判分内容，可用于离线端到端验证和结果检查；其绝对分数不能当作论文 GPT-4o-mini 的 GPT-Acc。若要严格复现论文数值，需要用论文相同的 GPT-4o-mini 裁判重新运行，并记录模型版本与日期。
 
-补充召回检查显示：Top-20 passage 中有 9/14 个问题包含答案证据，扩展到 Top-100 后为 12/14；其余两个问题的参考答案文本没有以预期形式出现在清洗语料中。
+> 最终结论指标来自人工语义评测（见上表与 error_analysis/ 文件）；自动评分器运行受裁判中断与字符串假阴性影响，仅作为过程诊断。
 
 ## 与论文设置的关系
 

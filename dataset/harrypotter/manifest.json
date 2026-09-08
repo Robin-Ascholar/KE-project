@@ -1,7 +1,6 @@
 {
   "format": {
-    "chunks.json": "JSON array of strings",
-    "questions.json": "JSON array of objects with question and answer"
+    "chunks.json": "JSON array of strings"
   },
   "embedding_model": "/home/lizhaoxuan/KE-project/model/all-mpnet-base-v2",
   "target_tokens": 300,
@@ -11,7 +10,6 @@
   "book_count": 7,
   "chapter_count": 199,
   "chunk_count": 6865,
-  "question_count": 14,
   "min_chunk_tokens": 80,
   "max_chunk_tokens": 360,
   "average_chunk_tokens": 282.4112163146395,

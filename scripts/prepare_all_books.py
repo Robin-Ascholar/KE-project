@@ -22,24 +22,6 @@ TITLE_CORRECTIONS = {
     "NICHOLAS FLAMEL": "NICOLAS FLAMEL",
 }
 
-QUESTIONS = [
-    {"question": "Who first tells Harry that he is a wizard?", "answer": "Rubeus Hagrid"},
-    {"question": "From which platform does the Hogwarts Express depart?", "answer": "Platform Nine and Three-Quarters"},
-    {"question": "Who frees Dobby from the Malfoy family?", "answer": "Harry Potter"},
-    {"question": "What destroys Tom Riddle's diary?", "answer": "A basilisk fang"},
-    {"question": "Who was Ron's rat Scabbers really?", "answer": "Peter Pettigrew"},
-    {"question": "Who sent Harry the Firebolt?", "answer": "Sirius Black"},
-    {"question": "What object transports Harry and Cedric to the graveyard?", "answer": "The Triwizard Cup"},
-    {"question": "Who kills Cedric Diggory?", "answer": "Peter Pettigrew"},
-    {"question": "What is the name of the secret student defense group?", "answer": "Dumbledore’s Army"},
-    {"question": "Who kills Sirius Black?", "answer": "Bellatrix Lestrange"},
-    {"question": "Who is the Half-Blood Prince?", "answer": "Severus Snape"},
-    {"question": "Who kills Albus Dumbledore?", "answer": "Severus Snape"},
-    {"question": "Whose Patronus takes the form of a silver doe?", "answer": "Severus Snape"},
-    {"question": "Who destroys Nagini, the final Horcrux?", "answer": "Neville Longbottom"},
-]
-
-
 @dataclass
 class Chapter:
     book_number: int
@@ -238,9 +220,8 @@ def main() -> None:
 
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "chunks.json").write_text(json.dumps(chunks, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    (args.output / "questions.json").write_text(json.dumps(QUESTIONS, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     manifest = {
-        "format": {"chunks.json": "JSON array of strings", "questions.json": "JSON array of objects with question and answer"},
+        "format": {"chunks.json": "JSON array of strings"},
         "embedding_model": str(args.embedding_model.resolve()),
         "target_tokens": args.target_tokens,
         "max_tokens": args.max_tokens,
@@ -249,7 +230,6 @@ def main() -> None:
         "book_count": len(sources),
         "chapter_count": len(chapters),
         "chunk_count": len(chunks),
-        "question_count": len(QUESTIONS),
         "min_chunk_tokens": min(info.token_count for info in infos),
         "max_chunk_tokens": max(info.token_count for info in infos),
         "average_chunk_tokens": sum(info.token_count for info in infos) / len(infos),
@@ -261,10 +241,8 @@ def main() -> None:
     print(f"Books: {len(sources)}")
     print(f"Chapters: {len(chapters)}")
     print(f"Chunks: {len(chunks)}")
-    print(f"Questions: {len(QUESTIONS)}")
     print(f"Chunk tokens: min={manifest['min_chunk_tokens']} max={manifest['max_chunk_tokens']} avg={manifest['average_chunk_tokens']:.1f}")
     print(f"Wrote: {args.output / 'chunks.json'}")
-    print(f"Wrote: {args.output / 'questions.json'}")
     print(f"Wrote: {args.output / 'manifest.json'}")
 
 

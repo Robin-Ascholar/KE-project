@@ -61,45 +61,39 @@ Context Relevance 是整组上下文的总体相关性；Context Precision 是�
 ```bash
 conda activate linearrag
 python scripts/evaluate_predictions.py \
-  --predictions results/harrypotter/2026-09-07_15-06-11/predictions.json \
+  --predictions results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/combined_predictions.json \
   --provider ollama \
   --judge-model qwen3.6:27b \
   --workers 1 \
   --num-ctx 32768 \
   --embedding-model model/all-mpnet-base-v2 \
   --embedding-device cpu \
-  --output results/harrypotter/2026-09-07_15-06-11/predictions.comprehensive-scored.qwen3.6-27b.json \
-  --summary results/harrypotter/2026-09-07_15-06-11/evaluation_results.comprehensive.qwen3.6-27b.json
+  --output results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/combined_predictions.scored.json \
+  --summary results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/evaluation_results.json
 ```
 
 逐题文件保留裁判原始 JSON、passage 标签、参考事实、回答事实、证据链和解析错误；汇总文件只平均完整解析的 RAG 记录，并单独报告失败数。
 
-## 当前 14 题结果
+> 说明：本项目最终采用的正确率来自**人工逐题语义评测**（回答与参考答案语义一致即判对），已写入 `combined_predictions.scored.json` 的 `local_judge_accuracy`/`local_judge_label` 与 `evaluation_results.deterministic.json`（总正确率 0.492）。自动打分（字符串包含与本地 LLM 裁判）结果存在偏差且已中断，不再作为结论指标；人工评测的错误模式分析见 [error_analysis/2026-09-08_qwen2.5-7b_full-1000_manual_review.md](../error_analysis/2026-09-08_qwen2.5-7b_full-1000_manual_review.md)。
 
-这些回答来自历史 `qwen2.5:7b` 运行，裁判使用本地 `qwen3.6:27b`：
+## 当前 1,000 题人工评测结果
 
-| 指标 | 结果 |
-|---|---:|
-| Contain-Acc | 42.86% |
-| Local Judge Accuracy | 42.86% |
-| Context Relevance | 64.29% |
-| Evidence Recall | 50.00% |
-| Context Precision | 7.50% |
-| Retrieval F1 | 10.68% |
-| Evidence Path Coverage | 58.93% |
-| Complete Path Rate | 50.00% |
-| Multi-hop Path Coverage | 75.00%（7 条裁判派生多步路径） |
-| Hit Rate | 64.29% |
-| MRR | 16.56% |
-| nDCG | 26.49% |
-| Answer Fact Coverage | 42.86% |
-| Faithfulness | 79.05% |
-| Exact Match | 0.00% |
-| Token F1 | 15.49% |
-| ROUGE-L F1 | 15.49% |
-| Semantic Similarity | 68.90% |
+完整实验为 `dataset/question/book1.json`–`book7.json` 的 1,000 道题，问答模型 `qwen2.5:7b`。早期 14 题 run 与其自动打分已删除。
 
-Exact Match 为零的主要原因是参考答案很短，而正确预测通常是包含答案的完整句子。Context Precision 较低说明 Top-20 带入了大量不直接贡献答案的段落；它与 50% 的 Evidence Recall 一起表明当前瓶颈主要在检索证据的准确性和完整性。
+人工逐题语义评测（每题一个 C/W 判定，无评测脚本参与打分）：
+
+| 分册 | 答对 | 正确率 |
+|---|---:|---:|
+| book1 | 77/143 | 53.8% |
+| book2 | 72/143 | 50.3% |
+| book3 | 85/143 | 59.4% |
+| book4 | 72/143 | 50.3% |
+| book5 | 84/143 | 58.7% |
+| book6 | 53/143 | 37.1% |
+| book7 | 49/142 | 34.5% |
+| **合计** | **492/1,000** | **49.2%** |
+
+判定口径：模型答案与参考答案语义一致即算对（含同义改写、别名、部分关键信息正确）；"上下文未提及/未说明"式回避明确事实、答错人物/数字/情节或答非所问均判错。错误模式与代表性逐题示例见 [error_analysis/2026-09-08_qwen2.5-7b_full-1000_manual_review.md](../error_analysis/2026-09-08_qwen2.5-7b_full-1000_manual_review.md)。
 
 ## 论文中的效率指标
 
