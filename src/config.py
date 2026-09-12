@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Optional
 from src.utils import LLM_Model
 @dataclass
 class LinearRAGConfig:
@@ -19,6 +20,9 @@ class LinearRAGConfig:
     damping: float = 0.5
     iteration_threshold: float = 0.5
     use_vectorized_retrieval: bool = False  # True for vectorized matrix computation, False for BFS iteration
+    entity_alias_path: Optional[str] = None
+    enable_alias_activation: bool = True
+    alias_activation_score: float = 0.85
     enable_hybrid_attribute_fallback: bool = False
     attribute_keyword_boost: float = 0.25
     attribute_query_keywords: list[str] = field(default_factory=lambda: [

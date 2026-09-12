@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "description": "Manually reviewed Harry Potter entity alias groups for query-time activation.",
+  "entities": [
+    {
+      "canonical_name": "Harry Potter",
+      "aliases": ["Harry", "The Boy Who Lived", "The Chosen One"]
+    },
+    {
+      "canonical_name": "Ron Weasley",
+      "aliases": ["Ron", "Ronald Weasley", "Ronald"]
+    },
+    {
+      "canonical_name": "Hermione Granger",
+      "aliases": ["Hermione", "Granger"]
+    },
+    {
+      "canonical_name": "Voldemort",
+      "aliases": ["Lord Voldemort", "Tom Riddle", "Tom Marvolo Riddle", "Riddle", "You-Know-Who", "He-Who-Must-Not-Be-Named", "Dark Lord", "The Dark Lord"]
+    },
+    {
+      "canonical_name": "Albus Dumbledore",
+      "aliases": ["Dumbledore", "Professor Dumbledore"]
+    },
+    {
+      "canonical_name": "Sirius Black",
+      "aliases": ["Sirius", "Padfoot", "Snuffles"]
+    },
+    {
+      "canonical_name": "Remus Lupin",
+      "aliases": ["Lupin", "Professor Lupin", "Moony"]
+    },
+    {
+      "canonical_name": "Peter Pettigrew",
+      "aliases": ["Pettigrew", "Wormtail", "Scabbers"]
+    },
+    {
+      "canonical_name": "Severus Snape",
+      "aliases": ["Snape", "Professor Snape", "The Half-Blood Prince", "Half-Blood Prince"]
+    },
+    {
+      "canonical_name": "Draco Malfoy",
+      "aliases": ["Draco"]
+    },
+    {
+      "canonical_name": "Lucius Malfoy",
+      "aliases": ["Lucius"]
+    },
+    {
+      "canonical_name": "Ginny Weasley",
+      "aliases": ["Ginny", "Ginevra Weasley"]
+    },
+    {
+      "canonical_name": "Neville Longbottom",
+      "aliases": ["Neville", "Longbottom"]
+    },
+    {
+      "canonical_name": "Luna Lovegood",
+      "aliases": ["Luna"]
+    },
+    {
+      "canonical_name": "Rubeus Hagrid",
+      "aliases": ["Hagrid"]
+    },
+    {
+      "canonical_name": "Minerva McGonagall",
+      "aliases": ["McGonagall", "Professor McGonagall"]
+    },
+    {
+      "canonical_name": "Horace Slughorn",
+      "aliases": ["Slughorn", "Professor Slughorn"]
+    },
+    {
+      "canonical_name": "Alastor Moody",
+      "aliases": ["Moody", "Mad-Eye Moody", "Mad-Eye"]
+    },
+    {
+      "canonical_name": "Bellatrix Lestrange",
+      "aliases": ["Bellatrix"]
+    },
+    {
+      "canonical_name": "Dolores Umbridge",
+      "aliases": ["Umbridge", "Professor Umbridge"]
+    },
+    {
+      "canonical_name": "Cornelius Fudge",
+      "aliases": ["Fudge"]
+    },
+    {
+      "canonical_name": "Arthur Weasley",
+      "aliases": ["Arthur", "Arthur Weasley"]
+    },
+    {
+      "canonical_name": "Molly Weasley",
+      "aliases": ["Molly", "Molly Weasley"]
+    },
+    {
+      "canonical_name": "Fred Weasley",
+      "aliases": ["Fred"]
+    },
+    {
+      "canonical_name": "George Weasley",
+      "aliases": ["George"]
+    },
+    {
+      "canonical_name": "Percy Weasley",
+      "aliases": ["Percy"]
+    },
+    {
+      "canonical_name": "Bill Weasley",
+      "aliases": ["Bill"]
+    },
+    {
+      "canonical_name": "Charlie Weasley",
+      "aliases": ["Charlie"]
+    },
+    {
+      "canonical_name": "Fleur Delacour",
+      "aliases": ["Fleur"]
+    },
+    {
+      "canonical_name": "Cedric Diggory",
+      "aliases": ["Cedric"]
+    },
+    {
+      "canonical_name": "Argus Filch",
+      "aliases": ["Filch"]
+    }
+  ]
+}

@@ -25,6 +25,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checks", type=Path, default=DEFAULT_CHECKS)
     parser.add_argument("--max-workers", type=int, default=4)
     parser.add_argument("--top-k", type=int, default=8)
+    parser.add_argument("--entity-alias-path", type=Path, help="Optional entity alias JSON path")
+    parser.add_argument("--disable-alias-activation", action="store_true", help="Disable query-time entity alias expansion")
     return parser.parse_args()
 
 
@@ -55,6 +57,8 @@ def main() -> None:
         iteration_threshold=0.4,
         passage_ratio=2.0,
         top_k_sentence=3,
+        entity_alias_path=str(args.entity_alias_path) if args.entity_alias_path else None,
+        enable_alias_activation=not args.disable_alias_activation,
     )
     rag = LinearRAG(global_config=config)
     rag.index(passages)

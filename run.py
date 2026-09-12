@@ -29,6 +29,8 @@ def parse_arguments():
     parser.add_argument("--top_k_sentence", type=int, default=3, help="The top k sentence to use")
     parser.add_argument("--retrieval_top_k", type=int, default=8, help="The number of passages to retrieve")
     parser.add_argument("--use_vectorized_retrieval", action="store_true", help="Use vectorized matrix-based retrieval instead of BFS iteration")
+    parser.add_argument("--entity_alias_path", type=str, default=None, help="Optional entity alias JSON path")
+    parser.add_argument("--disable_alias_activation", action="store_true", help="Disable query-time entity alias expansion")
     return parser.parse_args()
 
 
@@ -66,7 +68,9 @@ def main():
         passage_ratio=args.passage_ratio,
         top_k_sentence=args.top_k_sentence,
         retrieval_top_k=args.retrieval_top_k,
-        use_vectorized_retrieval=args.use_vectorized_retrieval
+        use_vectorized_retrieval=args.use_vectorized_retrieval,
+        entity_alias_path=args.entity_alias_path,
+        enable_alias_activation=not args.disable_alias_activation,
     )
     rag_model = LinearRAG(global_config=config)
     rag_model.index(passages)

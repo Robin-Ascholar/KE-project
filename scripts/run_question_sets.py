@@ -44,6 +44,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--passage-ratio", type=float, default=2.0)
     parser.add_argument("--top-k-sentence", type=int, default=3)
     parser.add_argument("--use-vectorized-retrieval", action="store_true")
+    parser.add_argument("--entity-alias-path", type=Path, help="Optional entity alias JSON path")
+    parser.add_argument("--disable-alias-activation", action="store_true", help="Disable query-time entity alias expansion")
     parser.add_argument("--output-dir", type=Path, help="Existing directory resumes automatically")
     parser.add_argument("--limit-per-set", type=int, help="Development/smoke-test limit")
     parser.add_argument("--no-evaluate", action="store_true")
@@ -159,6 +161,8 @@ def main() -> None:
             if previous.get("sha256") not in (None, row["sha256"]):
                 raise ValueError(f"Question set changed since checkpoint: {row['name']}")
             row["completed"] = min(int(previous.get("completed", 0)), row["question_count"])
+        manifest["entity_alias_path"] = str(args.entity_alias_path) if args.entity_alias_path else None
+        manifest["alias_activation_enabled"] = not args.disable_alias_activation
         manifest["question_sets"] = set_meta
     else:
         manifest = {
@@ -170,6 +174,8 @@ def main() -> None:
             "judge_model": None if args.no_evaluate or args.contain_only else args.judge_model,
             "retrieval_top_k": args.retrieval_top_k,
             "question_batch_size": args.question_batch_size,
+            "entity_alias_path": str(args.entity_alias_path) if args.entity_alias_path else None,
+            "alias_activation_enabled": not args.disable_alias_activation,
             "question_sets": set_meta,
         }
     update_manifest(manifest_path, manifest, "indexing")
@@ -197,6 +203,8 @@ def main() -> None:
         top_k_sentence=args.top_k_sentence,
         retrieval_top_k=args.retrieval_top_k,
         use_vectorized_retrieval=args.use_vectorized_retrieval,
+        entity_alias_path=str(args.entity_alias_path) if args.entity_alias_path else None,
+        enable_alias_activation=not args.disable_alias_activation,
     )
     rag = LinearRAG(global_config=config)
     rag.index(passages)
