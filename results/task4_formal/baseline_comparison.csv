@@ -1,0 +1,3 @@
+method,dense_backend,question_count,answer_accuracy,answer_accuracy_source,automatic_answer_accuracy,manual_review_correct,manual_review_question_count,contain_accuracy,evidence_recall_at_5,evidence_recall_evaluable_count,retrieval_latency_ms_avg,retrieval_latency_ms_p50,retrieval_latency_ms_p95,total_latency_ms_avg,total_latency_ms_p50,total_latency_ms_p95
+closed_book,,1000,0.032,lenient_manual_semantic_review,0.009,32,1000,0.022,,0,0.0,0.0,0.0,111.44387562200245,93.4729470000093,281.1647536502731
+dense_rag,sentence_transformer,1000,0.183,lenient_manual_semantic_review,0.031,183,1000,0.128,0.11933333333333299,1000,43.26670132700201,40.46323600005053,60.493705200724435,313.1215288910207,297.52942399909443,468.9858695494875

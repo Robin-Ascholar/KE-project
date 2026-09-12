@@ -1,0 +1,29 @@
+{
+  "task": "task4_closed_book_dense_rag",
+  "created_at_utc": "2026-09-12T01:04:06.690068+00:00",
+  "question_count": 1000,
+  "per_book": 1000,
+  "methods": [
+    "closed_book",
+    "dense_rag"
+  ],
+  "excluded_methods": [
+    "original_linearrag"
+  ],
+  "llm_model": "qwen2.5:0.5b",
+  "embedding_model": "model/all-mpnet-base-v2",
+  "dense_backend_requested": "sentence_transformer",
+  "top_k": 5,
+  "gold_evidence_note": "auto lexical candidate annotations; manually audit before claiming final benchmark gold labels",
+  "answer_accuracy_note": "Canonical answer_accuracy uses the lenient manual semantic review. Previous same-model automatic judge values are stored as automatic_answer_accuracy and predictions.auto_judge.json.",
+  "dense_backend_actual": "sentence_transformer",
+  "answer_accuracy_source": "lenient_manual_semantic_review",
+  "manual_review_files": {
+    "closed_book": "closed_book/manual_reviewed_predictions.json",
+    "dense_rag": "dense_rag/manual_reviewed_predictions.json"
+  },
+  "automatic_judge_backups": {
+    "closed_book": "closed_book/predictions.auto_judge.json",
+    "dense_rag": "dense_rag/predictions.auto_judge.json"
+  }
+}

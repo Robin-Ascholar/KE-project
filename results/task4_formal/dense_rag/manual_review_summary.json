@@ -1,0 +1,97 @@
+{
+  "review_type": "lenient_manual_semantic_review",
+  "method": "dense_rag",
+  "input": "/home/Zepi/KE-project/results/task4_formal/dense_rag/predictions.json",
+  "question_count": 1000,
+  "manual_correct": 183,
+  "manual_accuracy": 0.183,
+  "original_answer_accuracy": 0.031,
+  "original_contain_accuracy": 0.128,
+  "by_book": {
+    "book1": {
+      "correct": 33,
+      "total": 143,
+      "accuracy": 0.23076923076923078
+    },
+    "book2": {
+      "correct": 31,
+      "total": 143,
+      "accuracy": 0.21678321678321677
+    },
+    "book3": {
+      "correct": 30,
+      "total": 143,
+      "accuracy": 0.2097902097902098
+    },
+    "book4": {
+      "correct": 25,
+      "total": 143,
+      "accuracy": 0.17482517482517482
+    },
+    "book5": {
+      "correct": 24,
+      "total": 143,
+      "accuracy": 0.16783216783216784
+    },
+    "book6": {
+      "correct": 19,
+      "total": 143,
+      "accuracy": 0.13286713286713286
+    },
+    "book7": {
+      "correct": 21,
+      "total": 142,
+      "accuracy": 0.14788732394366197
+    }
+  },
+  "reason_counts": {
+    "missing or incorrect key fact": 778,
+    "Correct address core; the city was omitted.": 1,
+    "Unambiguous first-name form of Petunia Dursley.": 1,
+    "normalized gold concepts are all present": 140,
+    "refusal or context-not-found response": 12,
+    "contradictory number": 14,
+    "Hogwarts is the unambiguous short form of the school name.": 1,
+    "Troll identifies the requested creature; mountain modifier omitted.": 1,
+    "Malfoy is the unambiguous surname requested.": 5,
+    "negative or denying response": 7,
+    "Pixies identifies the requested creature; Cornish modifier omitted.": 1,
+    "The described silver sword is the requested Sword of Gryffindor.": 1,
+    "T. M. Riddle is the same person as Tom Riddle.": 1,
+    "The answer names the shop instead of the shop owner.": 1,
+    "known identity alias": 6,
+    "Stan is the unambiguous short form of Stan Shunpike.": 1,
+    "Black is the unambiguous surname in this question.": 1,
+    "Half-horse, half-bird is an acceptable broad description of a Hippogriff.": 1,
+    "Krum is the unambiguous surname requested.": 1,
+    "Crouch identifies Barty Crouch Sr. in this context.": 1,
+    "Veela lineage answers the requested magical heritage.": 1,
+    "The generated sentence identifies Gabrielle Delacour.": 1,
+    "The proposed organization is not S.P.E.W.; it is a wrong expansion.": 1,
+    "Map identifies the requested Marauder's Map.": 1,
+    "Shacklebolt is the unambiguous surname requested.": 1,
+    "Lupin is the unambiguous surname requested.": 2,
+    "Charlie is the requested Weasley brother.": 1,
+    "Grawp is a giant, not a giant bird.": 1,
+    "Forest identifies the requested location; Forbidden modifier omitted.": 1,
+    "A Droobles wrapper is the requested sweet wrapper.": 1,
+    "Dumbledore is the requested person.": 1,
+    "The answer correctly identifies Fenrir as a werewolf.": 1,
+    "Merope identifies Merope Gaunt in this question.": 1,
+    "The answer reverses Tom Riddle's father and mother.": 1,
+    "The locket is the requested object; Slytherin modifier omitted.": 2,
+    "Ogden is the unambiguous surname requested.": 1,
+    "Sectumsempra identifies the requested spell.": 1,
+    "Scrimgeour is the unambiguous surname requested.": 1,
+    "Regulus Black contains the requested person; middle name omitted.": 1,
+    "Brother answers the relationship; younger modifier omitted.": 1,
+    "Ron is the requested person.": 1,
+    "The answer reverses who defeated whom.": 1,
+    "The answer identifies the Horcrux as a coat of arms instead of a ring.": 1
+  },
+  "notes": [
+    "Original predictions.json was not modified.",
+    "The manual score is independent of the original same-model LLM judge.",
+    "Gold evidence annotations remain auto lexical candidates and were not re-annotated by this script."
+  ]
+}

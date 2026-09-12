@@ -1,0 +1,38 @@
+Task 4 formal baseline run
+Date: 2026-09-12 (Asia/Shanghai)
+Scope: Closed-book and Dense RAG only
+Excluded: Original LinearRAG (already completed by the user)
+
+Dataset:
+- 7 Harry Potter book question files
+- 1,000 questions total; all records from book1..book7
+- 6,865 passages
+- automatic lexical candidate gold chapter/evidence annotations
+
+Configuration:
+- Generator and answer judge: qwen2.5:0.5b via local Ollama
+- Embedding model: model/all-mpnet-base-v2
+- Dense backend: sentence_transformer
+- Embedding dimension: 768
+- Top-k: 5
+- Temperature: 0
+- Max output tokens: 64
+- Embedding device: cuda
+
+Completion:
+- Closed-book: 1,000/1,000
+- Dense RAG: 1,000/1,000
+- Answer accuracy evaluation: 2,000/2,000
+- Generation errors: 0
+
+Outputs:
+- questions_1000.json
+- passage_metadata.json
+- closed_book/predictions.json
+- dense_rag/predictions.json
+- baseline_comparison.json
+- baseline_comparison.csv
+- baseline_comparison.md
+
+Note: gold evidence is automatically generated lexical candidate annotation and
+requires manual audit before being reported as a final human-verified benchmark.

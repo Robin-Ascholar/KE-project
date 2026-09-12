@@ -1,0 +1,81 @@
+{
+  "review_type": "lenient_manual_semantic_review",
+  "method": "closed_book",
+  "input": "/home/Zepi/KE-project/results/task4_formal/closed_book/predictions.json",
+  "question_count": 1000,
+  "manual_correct": 32,
+  "manual_accuracy": 0.032,
+  "original_answer_accuracy": 0.009,
+  "original_contain_accuracy": 0.022,
+  "by_book": {
+    "book1": {
+      "correct": 6,
+      "total": 143,
+      "accuracy": 0.04195804195804196
+    },
+    "book2": {
+      "correct": 6,
+      "total": 143,
+      "accuracy": 0.04195804195804196
+    },
+    "book3": {
+      "correct": 7,
+      "total": 143,
+      "accuracy": 0.04895104895104895
+    },
+    "book4": {
+      "correct": 2,
+      "total": 143,
+      "accuracy": 0.013986013986013986
+    },
+    "book5": {
+      "correct": 5,
+      "total": 143,
+      "accuracy": 0.03496503496503497
+    },
+    "book6": {
+      "correct": 2,
+      "total": 143,
+      "accuracy": 0.013986013986013986
+    },
+    "book7": {
+      "correct": 4,
+      "total": 142,
+      "accuracy": 0.028169014084507043
+    }
+  },
+  "reason_counts": {
+    "missing or incorrect key fact": 915,
+    "contradictory number": 18,
+    "normalized gold concepts are all present": 25,
+    "refusal or context-not-found response": 15,
+    "Philosopher's Stone is the same object as Sorcerer's Stone.": 1,
+    "The answer identifies the warning letter; the underage-magic reason is omitted.": 1,
+    "The answer correctly states that Dobby hid Harry's letters; interception is omitted.": 1,
+    "The answer names the shop instead of the shop owner.": 1,
+    "Travel through time answers the Time-Turner function, with direction omitted.": 1,
+    "negative or denying response": 5,
+    "12 Grimmauld Place is the requested headquarters.": 1,
+    "Seeing through walls is a correct key ability; the second ability is omitted.": 1,
+    "The answer names Ron instead of Bill Weasley.": 1,
+    "The answer does not identify Charlie Weasley.": 1,
+    "The answer identifies Voldemort instead of Lucius Malfoy.": 1,
+    "The answer identifies the wrong mother and person.": 1,
+    "The answer identifies the wrong bridge.": 1,
+    "The answer identifies the wrong father.": 1,
+    "The answer identifies the wrong club.": 1,
+    "The answer adds a false Order of the Phoenix affiliation.": 1,
+    "The answer identifies the wrong target of Draco's mission.": 1,
+    "Brother answers the relationship; younger modifier is omitted.": 1,
+    "The answer reverses who defeated whom.": 1,
+    "The answer identifies the Horcrux as a coat of arms instead of a ring.": 1,
+    "The answer gives the wrong family relationship and identities.": 1,
+    "The answer does not identify the Elder Wand.": 1,
+    "The answer omits the essential fact that Dumbledore planned it with Snape.": 1
+  },
+  "notes": [
+    "Original predictions.json was not modified.",
+    "The manual score is independent of the original same-model LLM judge.",
+    "Gold evidence annotations remain auto lexical candidates and were not re-annotated by this script."
+  ]
+}
