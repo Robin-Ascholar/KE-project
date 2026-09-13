@@ -19,8 +19,15 @@ class LinearRAGConfig:
     damping: float = 0.5
     iteration_threshold: float = 0.5
     use_vectorized_retrieval: bool = False  # True for vectorized matrix computation, False for BFS iteration
+    save_graph_index: bool = True
     enable_hybrid_attribute_fallback: bool = False
     attribute_keyword_boost: float = 0.25
+    book_routing_mode: str = "off"
+    book_routing_strength: float = 0.5
+    book_routing_temperature: float = 0.05
+    book_routing_top_m: int = 3
+    book_routing_confidence_aware: bool = True
+    book_routing_boost_only: bool = False
     attribute_query_keywords: list[str] = field(default_factory=lambda: [
         "born", "birth", "where", "when", "located", "location", "founded", "founder",
         "died", "death", "nationality", "capital", "date", "year"

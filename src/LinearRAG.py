@@ -1,4 +1,10 @@
 from src.embedding_store import EmbeddingStore
+from src.book_routing import (
+    book_prior_factors,
+    extract_book_number,
+    infer_book_distribution,
+    normalized_entropy_confidence,
+)
 from src.utils import min_max_normalize
 import os
 import json
@@ -123,6 +129,18 @@ class LinearRAG:
             self.entity_embeddings = np.array(self.entity_embedding_store.embeddings)
             self.passage_hash_ids = list(self.passage_embedding_store.hash_id_to_text.keys())
             self.passage_embeddings = np.array(self.passage_embedding_store.embeddings)
+            parsed_book_numbers = [
+                extract_book_number(self.passage_embedding_store.hash_id_to_text[passage_hash_id])
+                for passage_hash_id in self.passage_hash_ids
+            ]
+            self.passage_book_numbers = np.asarray(
+                [book_number if book_number is not None else 0 for book_number in parsed_book_numbers],
+                dtype=int,
+            )
+            self.available_book_numbers = np.asarray(
+                sorted(set(int(book_number) for book_number in self.passage_book_numbers if book_number > 0)),
+                dtype=int,
+            )
             self.sentence_hash_ids = list(self.sentence_embedding_store.hash_id_to_text.keys())
             self.sentence_embeddings = np.array(self.sentence_embedding_store.embeddings)
             self.node_name_to_vertex_idx = {v["name"]: v.index for v in self.graph.vs if "name" in v.attributes()}
@@ -141,18 +159,34 @@ class LinearRAG:
                 logger.info(f"Device: {self.device}")
             self._retrieval_runtime_ready = True
 
+        self._validate_book_routing_configuration()
         retrieval_results = []
         for question_info in tqdm(questions, desc="Retrieving"):
             question = question_info["question"]
             question_embedding = self.config.embedding_model.encode(question,normalize_embeddings=True,show_progress_bar=False,batch_size=self.config.batch_size)
+            passage_similarities = self._passage_similarities(question_embedding)
+            book_routing = self._build_book_routing(question_info, passage_similarities)
             seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores = self.get_seed_entities(question)
             if len(seed_entities) != 0:
-                sorted_passage_hash_ids,sorted_passage_scores = self.graph_search_with_seed_entities(question,question_embedding,seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores)
+                sorted_passage_hash_ids,sorted_passage_scores = self.graph_search_with_seed_entities(
+                    question,
+                    question_embedding,
+                    seed_entity_indices,
+                    seed_entities,
+                    seed_entity_hash_ids,
+                    seed_entity_scores,
+                    passage_similarities=passage_similarities,
+                    book_routing=book_routing,
+                )
                 final_passage_hash_ids = sorted_passage_hash_ids[:self.config.retrieval_top_k]
                 final_passage_scores = sorted_passage_scores[:self.config.retrieval_top_k]
                 final_passages = [self.passage_embedding_store.hash_id_to_text[passage_hash_id] for passage_hash_id in final_passage_hash_ids]
             else:
-                sorted_passage_indices,sorted_passage_scores = self.dense_passage_retrieval(question_embedding)
+                sorted_passage_indices,sorted_passage_scores = self.dense_passage_retrieval(
+                    question_embedding,
+                    passage_similarities=passage_similarities,
+                    book_routing=book_routing,
+                )
                 final_passage_indices = sorted_passage_indices[:self.config.retrieval_top_k]
                 final_passage_scores = sorted_passage_scores[:self.config.retrieval_top_k]
                 final_passages = [self.passage_embedding_store.texts[idx] for idx in final_passage_indices]
@@ -162,11 +196,111 @@ class LinearRAG:
                 "sorted_passage_scores": final_passage_scores,
                 "gold_answer": question_info["answer"]
             }
-            for annotation_key in ("reasoning_path", "supporting_facts", "gold_evidence", "evidence"):
+            for annotation_key in (
+                "reasoning_path", "supporting_facts", "gold_evidence", "evidence",
+                "book_number", "question_set", "question_index", "split",
+            ):
                 if annotation_key in question_info:
                     result[annotation_key] = question_info[annotation_key]
+            if len(self.available_book_numbers) > 0:
+                result["retrieved_passage_books"] = [
+                    extract_book_number(passage) for passage in final_passages
+                ]
+            if book_routing is not None:
+                result["book_routing"] = {
+                    key: value
+                    for key, value in book_routing.items()
+                    if not key.startswith("_")
+                }
             retrieval_results.append(result)
         return retrieval_results
+
+    def _validate_book_routing_configuration(self):
+        mode = str(self.config.book_routing_mode).lower()
+        if mode not in {"off", "predicted", "oracle"}:
+            raise ValueError("book_routing_mode must be one of: off, predicted, oracle")
+        if mode == "off":
+            return
+        if len(self.available_book_numbers) < 2 or np.any(self.passage_book_numbers <= 0):
+            raise ValueError(
+                "Book routing requires every passage to start with a 'Book N |' prefix"
+            )
+        if not 0.0 <= self.config.book_routing_strength <= 1.0:
+            raise ValueError("book_routing_strength must be in [0, 1]")
+        if self.config.book_routing_temperature <= 0:
+            raise ValueError("book_routing_temperature must be positive")
+        if self.config.book_routing_top_m < 1:
+            raise ValueError("book_routing_top_m must be positive")
+
+    def _passage_similarities(self, question_embedding):
+        question_emb = question_embedding.reshape(1, -1)
+        return np.dot(self.passage_embeddings, question_emb.T).flatten()
+
+    def _build_book_routing(self, question_info, passage_similarities):
+        mode = str(self.config.book_routing_mode).lower()
+        if mode == "off":
+            return None
+
+        book_ids = self.available_book_numbers
+        if mode == "oracle":
+            gold_book = question_info.get("book_number", question_info.get("gold_book"))
+            if gold_book is None:
+                raise ValueError("oracle book routing requires book_number or gold_book metadata")
+            gold_book = int(gold_book)
+            if gold_book not in set(book_ids.tolist()):
+                raise ValueError(f"oracle book {gold_book} is not present in the passage corpus")
+            probabilities = np.asarray([1.0 if book_id == gold_book else 0.0 for book_id in book_ids])
+            book_scores = None
+            confidence = 1.0
+        else:
+            book_ids, score_array, probabilities = infer_book_distribution(
+                passage_similarities,
+                self.passage_book_numbers,
+                book_ids=book_ids,
+                top_m=self.config.book_routing_top_m,
+                temperature=self.config.book_routing_temperature,
+            )
+            book_scores = [float(value) for value in score_array]
+            confidence = normalized_entropy_confidence(probabilities)
+
+        confidence_multiplier = (
+            confidence
+            if mode == "predicted" and self.config.book_routing_confidence_aware
+            else 1.0
+        )
+        factors, effective_strength = book_prior_factors(
+            self.passage_book_numbers,
+            book_ids,
+            probabilities,
+            strength=self.config.book_routing_strength,
+            confidence=confidence_multiplier,
+            boost_only=self.config.book_routing_boost_only,
+        )
+        predicted_index = int(np.argmax(probabilities))
+        return {
+            "mode": mode,
+            "confidence_aware": bool(
+                mode == "predicted" and self.config.book_routing_confidence_aware
+            ),
+            "boost_only": bool(self.config.book_routing_boost_only),
+            "book_ids": [int(value) for value in book_ids],
+            "book_scores": book_scores,
+            "probabilities": [float(value) for value in probabilities],
+            "predicted_book": int(book_ids[predicted_index]),
+            "confidence": float(confidence),
+            "configured_strength": float(self.config.book_routing_strength),
+            "effective_strength": float(effective_strength),
+            "top_m": int(self.config.book_routing_top_m),
+            "temperature": float(self.config.book_routing_temperature),
+            "_passage_factors": factors,
+        }
+
+    def _apply_book_routing(self, passage_scores, book_routing):
+        scores = np.asarray(passage_scores, dtype=float)
+        if book_routing is None or book_routing["effective_strength"] == 0.0:
+            return scores
+        normalized_scores = min_max_normalize(scores)
+        return normalized_scores * book_routing["_passage_factors"]
 
     def _precompute_sparse_matrices(self):
         """
@@ -223,12 +357,28 @@ class LinearRAG:
                 (num_sentences, num_entities), device=self.device
             )
 
-    def graph_search_with_seed_entities(self, question, question_embedding, seed_entity_indices, seed_entities, seed_entity_hash_ids, seed_entity_scores):
+    def graph_search_with_seed_entities(
+        self,
+        question,
+        question_embedding,
+        seed_entity_indices,
+        seed_entities,
+        seed_entity_hash_ids,
+        seed_entity_scores,
+        passage_similarities=None,
+        book_routing=None,
+    ):
         if self.config.use_vectorized_retrieval:
             entity_weights, actived_entities = self.calculate_entity_scores_vectorized(question_embedding,seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores)
         else:
             entity_weights, actived_entities = self.calculate_entity_scores(question_embedding,seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores)
-        passage_weights = self.calculate_passage_scores(question, question_embedding, actived_entities)
+        passage_weights = self.calculate_passage_scores(
+            question,
+            question_embedding,
+            actived_entities,
+            passage_similarities=passage_similarities,
+            book_routing=book_routing,
+        )
         node_weights = entity_weights + passage_weights
         ppr_sorted_passage_indices,ppr_sorted_passage_scores = self.run_ppr(node_weights)
         return ppr_sorted_passage_indices,ppr_sorted_passage_scores
@@ -518,9 +668,20 @@ class LinearRAG:
 
         return entity_weights, actived_entities
 
-    def calculate_passage_scores(self, question, question_embedding, actived_entities):
+    def calculate_passage_scores(
+        self,
+        question,
+        question_embedding,
+        actived_entities,
+        passage_similarities=None,
+        book_routing=None,
+    ):
         passage_weights = np.zeros(len(self.graph.vs["name"]))
-        dpr_passage_indices, dpr_passage_scores = self.dense_passage_retrieval(question_embedding)
+        dpr_passage_indices, dpr_passage_scores = self.dense_passage_retrieval(
+            question_embedding,
+            passage_similarities=passage_similarities,
+            book_routing=book_routing,
+        )
         dpr_passage_scores = min_max_normalize(dpr_passage_scores)
         apply_attribute_boost = (
             self.config.enable_hybrid_attribute_fallback
@@ -552,11 +713,17 @@ class LinearRAG:
             passage_weights[passage_node_idx] = passage_score * self.config.passage_node_weight
         return passage_weights
 
-    def dense_passage_retrieval(self, question_embedding):
-        question_emb = question_embedding.reshape(1, -1)
-        question_passage_similarities = np.dot(self.passage_embeddings, question_emb.T).flatten()
-        sorted_passage_indices = np.argsort(question_passage_similarities)[::-1]
-        sorted_passage_scores = question_passage_similarities[sorted_passage_indices].tolist()
+    def dense_passage_retrieval(
+        self,
+        question_embedding,
+        passage_similarities=None,
+        book_routing=None,
+    ):
+        if passage_similarities is None:
+            passage_similarities = self._passage_similarities(question_embedding)
+        adjusted_scores = self._apply_book_routing(passage_similarities, book_routing)
+        sorted_passage_indices = np.argsort(adjusted_scores)[::-1]
+        sorted_passage_scores = adjusted_scores[sorted_passage_indices].tolist()
         return sorted_passage_indices, sorted_passage_scores
 
     def _is_attribute_query(self, question):
@@ -617,9 +784,10 @@ class LinearRAG:
         self.add_entity_to_passage_edges(passage_hash_id_to_entities)
         self.add_adjacent_passage_edges()
         self.augment_graph()
-        output_graphml_path = os.path.join(self.config.working_dir,self.dataset_name, "LinearRAG.graphml")
-        os.makedirs(os.path.dirname(output_graphml_path), exist_ok=True)
-        self.graph.write_graphml(output_graphml_path)
+        if self.config.save_graph_index:
+            output_graphml_path = os.path.join(self.config.working_dir,self.dataset_name, "LinearRAG.graphml")
+            os.makedirs(os.path.dirname(output_graphml_path), exist_ok=True)
+            self.graph.write_graphml(output_graphml_path)
 
     def add_adjacent_passage_edges(self):
         passage_id_to_text = self.passage_embedding_store.get_hash_id_to_text()
