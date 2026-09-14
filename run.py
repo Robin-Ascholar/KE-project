@@ -29,6 +29,9 @@ def parse_arguments():
     parser.add_argument("--top_k_sentence", type=int, default=3, help="The top k sentence to use")
     parser.add_argument("--retrieval_top_k", type=int, default=8, help="The number of passages to retrieve")
     parser.add_argument("--use_vectorized_retrieval", action="store_true", help="Use vectorized matrix-based retrieval instead of BFS iteration")
+    parser.add_argument("--enable_chapter_retrieval", action="store_true", help="Use chapter coarse-to-fine retrieval")
+    parser.add_argument("--chapter_top_k", type=int, default=8, help="Number of chapters selected in coarse retrieval")
+    parser.add_argument("--chapter_global_fallback", type=int, default=2, help="Global passage candidates retained as fallback")
     return parser.parse_args()
 
 
@@ -66,7 +69,10 @@ def main():
         passage_ratio=args.passage_ratio,
         top_k_sentence=args.top_k_sentence,
         retrieval_top_k=args.retrieval_top_k,
-        use_vectorized_retrieval=args.use_vectorized_retrieval
+        use_vectorized_retrieval=args.use_vectorized_retrieval,
+        enable_chapter_retrieval=args.enable_chapter_retrieval,
+        chapter_top_k=args.chapter_top_k,
+        chapter_global_fallback=args.chapter_global_fallback,
     )
     rag_model = LinearRAG(global_config=config)
     rag_model.index(passages)

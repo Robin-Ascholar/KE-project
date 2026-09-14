@@ -46,6 +46,19 @@ class EmbeddingStore:
 
         self._upsert(missing_ids, texts_to_encode, all_embeddings)
 
+    def insert_embeddings(self, texts, embeddings):
+        """Persist precomputed vectors, used for chapter mean representations."""
+        if len(texts) != len(embeddings):
+            raise ValueError("texts and embeddings must have the same length")
+        nodes = {compute_mdhash_id(text, prefix=self.namespace + "-"): text for text in texts}
+        existing = set(self.hash_ids)
+        missing = [(hash_id, text, embedding) for (hash_id, text), embedding in zip(nodes.items(), embeddings)
+                   if hash_id not in existing]
+        if not missing:
+            return
+        hash_ids, new_texts, new_embeddings = zip(*missing)
+        self._upsert(list(hash_ids), list(new_texts), np.asarray(new_embeddings))
+
     def _upsert(self, hash_ids, texts, embeddings):
         self.hash_ids.extend(hash_ids)
         self.texts.extend(texts)

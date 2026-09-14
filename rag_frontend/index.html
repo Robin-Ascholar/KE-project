@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Harry Potter LinearRAG 图检索问答工作台">
+    <title>Harry Potter · LinearRAG</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar" aria-label="主导航">
+            <div class="brand">
+                <div class="brand-mark brand-mark-tju" aria-hidden="true">TJU</div>
+                <div class="brand-copy">
+                    <strong>天津大学</strong>
+                    <span>人工智能学院</span>
+                </div>
+            </div>
+
+            <div class="product-signature">
+                <i data-lucide="waypoints" aria-hidden="true"></i>
+                <span><strong>Harry Potter 问答</strong><small>LINEARRAG WORKBENCH</small></span>
+            </div>
+
+            <button class="button button-primary new-session-button" id="newSessionButton" type="button">
+                <i data-lucide="square-pen" aria-hidden="true"></i>
+                <span>新建问答</span>
+            </button>
+
+            <nav class="primary-nav">
+                <button class="nav-item is-active" type="button" data-view="query">
+                    <i data-lucide="messages-square" aria-hidden="true"></i>
+                    <span>问答工作台</span>
+                </button>
+                <button class="nav-item" type="button" data-view="graph">
+                    <i data-lucide="database" aria-hidden="true"></i>
+                    <span>索引管理</span>
+                </button>
+            </nav>
+
+            <section class="history-section" aria-labelledby="historyTitle">
+                <div class="sidebar-section-heading">
+                    <h2 id="historyTitle">最近问答</h2>
+                    <span id="historyCount">0</span>
+                </div>
+                <div class="history-list" id="historyList"></div>
+            </section>
+
+            <div class="university-motto">
+                <span>实事求是</span>
+                <small>SEEK TRUTH FROM FACTS</small>
+            </div>
+
+            <button class="backend-status" id="sidebarStatusButton" type="button">
+                <span class="status-dot is-checking" id="sidebarStatusDot"></span>
+                <span class="backend-status-copy">
+                    <strong id="sidebarStatusText">正在检测后端</strong>
+                    <small id="sidebarStatusAddress">127.0.0.1:8080</small>
+                </span>
+                <i data-lucide="refresh-cw" aria-hidden="true"></i>
+            </button>
+        </aside>
+
+        <button class="mobile-scrim" id="mobileScrim" type="button" aria-label="关闭面板" hidden></button>
+
+        <main class="workspace">
+            <header class="topbar">
+                <div class="topbar-title-group">
+                    <button class="icon-button mobile-menu-button" id="mobileMenuButton" type="button" title="打开导航" aria-label="打开导航">
+                        <i data-lucide="menu" aria-hidden="true"></i>
+                    </button>
+                    <div>
+                        <h1 id="pageTitle">问答工作台</h1>
+                        <p id="pageSubtitle">HARRY POTTER · LINEARRAG · QA</p>
+                    </div>
+                </div>
+
+                <div class="topbar-actions">
+                    <div class="topk-control" aria-label="检索结果数量">
+                        <span>Top-K</span>
+                        <button class="icon-button icon-button-compact" id="topKMinus" type="button" title="减少 Top-K" aria-label="减少 Top-K">
+                            <i data-lucide="minus" aria-hidden="true"></i>
+                        </button>
+                        <input id="topKInput" type="number" min="1" max="20" step="1" value="8" aria-label="Top-K">
+                        <button class="icon-button icon-button-compact" id="topKPlus" type="button" title="增加 Top-K" aria-label="增加 Top-K">
+                            <i data-lucide="plus" aria-hidden="true"></i>
+                        </button>
+                        <button class="button button-secondary button-small" id="applyTopKButton" type="button">应用</button>
+                    </div>
+
+                    <button class="status-pill" id="topbarStatusButton" type="button" title="刷新后端状态">
+                        <span class="status-dot is-checking" id="topbarStatusDot"></span>
+                        <span id="topbarStatusText">检测中</span>
+                    </button>
+
+                    <button class="icon-button details-toggle" id="detailsToggle" type="button" title="查看检索详情" aria-label="查看检索详情">
+                        <i data-lucide="panel-right-open" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </header>
+
+            <section class="app-view query-view is-active" id="queryView" aria-label="问答工作台">
+                <div class="query-layout">
+                    <section class="conversation-panel">
+                        <div class="dataset-bar">
+                            <div class="dataset-summary">
+                                <i data-lucide="file-spreadsheet" aria-hidden="true"></i>
+                                <span>当前数据集</span>
+                                <strong id="datasetPathLabel">harrypotter</strong>
+                            </div>
+                            <button class="button button-quiet button-small" id="openGraphButton" type="button">
+                                <i data-lucide="settings-2" aria-hidden="true"></i>
+                                <span>索引管理</span>
+                            </button>
+                        </div>
+
+                        <div class="conversation" id="conversation" aria-live="polite"></div>
+
+                        <div class="composer-area">
+                            <div class="composer-shell">
+                                <form id="questionForm">
+                                    <textarea id="questionInput" rows="1" maxlength="4000" placeholder="输入关于 Harry Potter 七册原著的问题" aria-label="Harry Potter 问题"></textarea>
+                                    <button class="send-button" id="sendButton" type="submit" title="发送问题" aria-label="发送问题" disabled>
+                                        <i data-lucide="arrow-up" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                                <div class="composer-meta">
+                                    <span id="composerState">就绪</span>
+                                    <span>Enter 发送 · Shift + Enter 换行</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <aside class="details-panel" id="detailsPanel" aria-label="检索详情">
+                        <div class="details-header">
+                            <div>
+                                <h2>检索详情</h2>
+                                <span id="resultTimestamp">尚无结果</span>
+                            </div>
+                            <div class="details-actions">
+                                <button class="icon-button" id="downloadResultButton" type="button" title="下载 JSON" aria-label="下载 JSON" disabled>
+                                    <i data-lucide="download" aria-hidden="true"></i>
+                                </button>
+                                <button class="icon-button close-details-button" id="closeDetailsButton" type="button" title="关闭详情" aria-label="关闭详情">
+                                    <i data-lucide="x" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mobile-topk-setting" aria-label="移动端检索结果数量">
+                            <span>Top-K</span>
+                            <div>
+                                <button class="icon-button icon-button-compact" id="mobileTopKMinus" type="button" title="减少 Top-K" aria-label="减少 Top-K">
+                                    <i data-lucide="minus" aria-hidden="true"></i>
+                                </button>
+                                <input id="mobileTopKInput" type="number" min="1" max="20" step="1" value="8" aria-label="移动端 Top-K">
+                                <button class="icon-button icon-button-compact" id="mobileTopKPlus" type="button" title="增加 Top-K" aria-label="增加 Top-K">
+                                    <i data-lucide="plus" aria-hidden="true"></i>
+                                </button>
+                                <button class="button button-secondary button-small" id="mobileApplyTopKButton" type="button">应用</button>
+                            </div>
+                        </div>
+
+                        <div class="detail-tabs" role="tablist" aria-label="结果详情视图">
+                            <button class="detail-tab is-active" type="button" role="tab" data-detail-tab="evidence">检索证据 <span id="evidenceCount">0</span></button>
+                            <button class="detail-tab" type="button" role="tab" data-detail-tab="diagnostics">查询诊断</button>
+                            <button class="detail-tab" type="button" role="tab" data-detail-tab="raw">原始响应</button>
+                        </div>
+
+                        <div class="detail-content">
+                            <section class="detail-pane is-active" id="evidencePane" data-detail-pane="evidence"></section>
+                            <section class="detail-pane" id="diagnosticsPane" data-detail-pane="diagnostics"></section>
+                            <section class="detail-pane raw-pane" id="rawPane" data-detail-pane="raw"></section>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="app-view graph-view" id="graphView" aria-label="索引管理">
+                <div class="graph-content">
+                    <header class="section-heading">
+                        <div>
+                            <p>TIANJIN UNIVERSITY · AI</p>
+                            <h2>索引管理</h2>
+                        </div>
+                        <span class="operation-state" id="graphOperationState">等待操作</span>
+                    </header>
+
+                    <div class="graph-grid">
+                        <section class="graph-section import-section" aria-labelledby="importTitle">
+                            <div class="section-title-row">
+                                <div>
+                                    <span class="section-index">01</span>
+                                    <h3 id="importTitle">数据集索引</h3>
+                                </div>
+                            </div>
+                            <label for="csvPathInput">数据集名称</label>
+                            <div class="path-control">
+                                <i data-lucide="file-spreadsheet" aria-hidden="true"></i>
+                                <input id="csvPathInput" type="text" spellcheck="false" autocomplete="off" value="harrypotter">
+                                <button class="icon-button" id="resetCsvButton" type="button" title="恢复默认路径" aria-label="恢复默认路径">
+                                    <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <button class="button button-primary graph-action-button" id="buildGraphButton" type="button">
+                                <i data-lucide="database-zap" aria-hidden="true"></i>
+                                <span>加载图谱与向量索引</span>
+                            </button>
+                        </section>
+
+                        <section class="graph-section service-section" aria-labelledby="serviceTitle">
+                            <div class="section-title-row">
+                                <div>
+                                    <span class="section-index">02</span>
+                                    <h3 id="serviceTitle">服务连接</h3>
+                                </div>
+                                <button class="icon-button" id="refreshServiceButton" type="button" title="刷新连接状态" aria-label="刷新连接状态">
+                                    <i data-lucide="refresh-cw" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <dl class="service-list">
+                                <div>
+                                    <dt>前端代理</dt>
+                                    <dd><span class="inline-state is-online"></span><span>已连接</span></dd>
+                                </div>
+                                <div>
+                                    <dt>LinearRAG 运行时</dt>
+                                    <dd><span class="inline-state" id="backendInlineState"></span><span id="backendInlineText">检测中</span></dd>
+                                </div>
+                                <div>
+                                    <dt>API 地址</dt>
+                                    <dd id="apiBaseLabel">/api</dd>
+                                </div>
+                                <div>
+                                    <dt>请求超时</dt>
+                                    <dd id="timeoutLabel">240 秒</dd>
+                                </div>
+                            </dl>
+                        </section>
+                    </div>
+
+                    <section class="graph-section activity-section" aria-labelledby="activityTitle">
+                        <div class="section-title-row">
+                            <div>
+                                <span class="section-index">03</span>
+                                <h3 id="activityTitle">操作记录</h3>
+                            </div>
+                            <button class="button button-quiet button-small" id="clearActivityButton" type="button">清空记录</button>
+                        </div>
+                        <div class="activity-list" id="activityList"></div>
+                    </section>
+
+                    <section class="danger-section" aria-labelledby="dangerTitle">
+                        <div>
+                            <h3 id="dangerTitle">卸载内存运行时</h3>
+                            <p>释放 embedding、图谱和检索矩阵占用的内存；磁盘索引不会删除</p>
+                        </div>
+                        <button class="button button-danger" id="openClearModalButton" type="button">
+                            <i data-lucide="trash-2" aria-hidden="true"></i>
+                            <span>卸载运行时</span>
+                        </button>
+                    </section>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal" id="clearGraphModal" aria-hidden="true">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="clearModalTitle">
+            <div class="modal-icon"><i data-lucide="triangle-alert" aria-hidden="true"></i></div>
+            <div class="modal-copy">
+                <h2 id="clearModalTitle">确认卸载运行时</h2>
+                <p>该操作只释放当前进程中的模型与图谱，磁盘文件会完整保留。</p>
+            </div>
+            <label class="confirm-check">
+                <input type="checkbox" id="clearConfirmCheckbox">
+                <span>确认执行卸载操作</span>
+            </label>
+            <div class="modal-actions">
+                <button class="button button-secondary" id="cancelClearButton" type="button">取消</button>
+                <button class="button button-danger" id="confirmClearButton" type="button" disabled>确认卸载</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+    <script src="js/lucide.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -44,6 +44,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--passage-ratio", type=float, default=2.0)
     parser.add_argument("--top-k-sentence", type=int, default=3)
     parser.add_argument("--use-vectorized-retrieval", action="store_true")
+    parser.add_argument("--enable-chapter-retrieval", action="store_true", help="Use chapter coarse-to-fine retrieval")
+    parser.add_argument("--chapter-top-k", type=int, default=8)
+    parser.add_argument("--chapter-global-fallback", type=int, default=2)
     parser.add_argument("--output-dir", type=Path, help="Existing directory resumes automatically")
     parser.add_argument("--limit-per-set", type=int, help="Development/smoke-test limit")
     parser.add_argument("--no-evaluate", action="store_true")
@@ -169,6 +172,9 @@ def main() -> None:
             "qa_model": args.llm_model,
             "judge_model": None if args.no_evaluate or args.contain_only else args.judge_model,
             "retrieval_top_k": args.retrieval_top_k,
+            "enable_chapter_retrieval": args.enable_chapter_retrieval,
+            "chapter_top_k": args.chapter_top_k,
+            "chapter_global_fallback": args.chapter_global_fallback,
             "question_batch_size": args.question_batch_size,
             "question_sets": set_meta,
         }
@@ -197,6 +203,9 @@ def main() -> None:
         top_k_sentence=args.top_k_sentence,
         retrieval_top_k=args.retrieval_top_k,
         use_vectorized_retrieval=args.use_vectorized_retrieval,
+        enable_chapter_retrieval=args.enable_chapter_retrieval,
+        chapter_top_k=args.chapter_top_k,
+        chapter_global_fallback=args.chapter_global_fallback,
     )
     rag = LinearRAG(global_config=config)
     rag.index(passages)

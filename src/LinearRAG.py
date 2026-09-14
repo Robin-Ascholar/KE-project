@@ -37,6 +37,42 @@ class LinearRAG:
         self.passage_embedding_store = EmbeddingStore(self.config.embedding_model, db_filename=os.path.join(self.config.working_dir,self.dataset_name, "passage_embedding.parquet"), batch_size=self.config.batch_size, namespace="passage")
         self.entity_embedding_store = EmbeddingStore(self.config.embedding_model, db_filename=os.path.join(self.config.working_dir,self.dataset_name, "entity_embedding.parquet"), batch_size=self.config.batch_size, namespace="entity")
         self.sentence_embedding_store = EmbeddingStore(self.config.embedding_model, db_filename=os.path.join(self.config.working_dir,self.dataset_name, "sentence_embedding.parquet"), batch_size=self.config.batch_size, namespace="sentence")
+        self.chapter_embedding_store = EmbeddingStore(self.config.embedding_model, db_filename=os.path.join(self.config.working_dir,self.dataset_name, "chapter_embedding.parquet"), batch_size=self.config.batch_size, namespace="chapter")
+
+    def _load_chapter_metadata(self, passages):
+        pattern = re.compile(r"^(?:\d+:\s*)?Book\s+(\d+)\s+\|\s+Chapter\s+(\d+):\s*([^\n]*)", re.IGNORECASE)
+        chapter_keys = []
+        chapter_texts = {}
+        passage_to_chapter = {}
+        for index, passage in enumerate(passages):
+            match = pattern.match(passage.strip())
+            if not match:
+                raise ValueError(f"Passage {index} does not contain the expected book/chapter prefix")
+            book, chapter, title = int(match.group(1)), int(match.group(2)), match.group(3).strip()
+            key = f"book{book}-chapter{chapter}"
+            chapter_keys.append(key)
+            passage_to_chapter[index] = key
+            chapter_texts.setdefault(key, f"Book {book} | Chapter {chapter}: {title}")
+        self.passage_to_chapter = passage_to_chapter
+        self.chapter_keys = list(dict.fromkeys(chapter_keys))
+        self.chapter_texts = chapter_texts
+
+    def _build_chapter_index(self):
+        chapter_vectors = []
+        for key in self.chapter_keys:
+            indices = [i for i, value in self.passage_to_chapter.items() if value == key]
+            vector = np.asarray(self.passage_embeddings[indices], dtype=np.float32).mean(axis=0)
+            norm = np.linalg.norm(vector)
+            chapter_vectors.append(vector / norm if norm else vector)
+        self.chapter_embedding_store.insert_embeddings(
+            [self.chapter_texts[key] for key in self.chapter_keys], chapter_vectors
+        )
+        self.chapter_hash_ids = [self.chapter_embedding_store.text_to_hash_id[self.chapter_texts[key]] for key in self.chapter_keys]
+        self.chapter_embeddings = np.asarray([
+            self.chapter_embedding_store.embeddings[self.chapter_embedding_store.hash_id_to_idx[hash_id]]
+            for hash_id in self.chapter_hash_ids
+        ])
+        self.chapter_key_to_index = {key: i for i, key in enumerate(self.chapter_keys)}
 
     def load_existing_data(self,passage_hash_ids):
         self.ner_results_path = os.path.join(self.config.working_dir,self.dataset_name, "ner_results.json")
@@ -145,14 +181,18 @@ class LinearRAG:
         for question_info in tqdm(questions, desc="Retrieving"):
             question = question_info["question"]
             question_embedding = self.config.embedding_model.encode(question,normalize_embeddings=True,show_progress_bar=False,batch_size=self.config.batch_size)
+            allowed_passage_hash_ids = None
+            chapter_info = {}
+            if self.config.enable_chapter_retrieval:
+                allowed_passage_hash_ids, chapter_info = self._chapter_candidates(question_embedding)
             seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores = self.get_seed_entities(question)
             if len(seed_entities) != 0:
-                sorted_passage_hash_ids,sorted_passage_scores = self.graph_search_with_seed_entities(question,question_embedding,seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores)
+                sorted_passage_hash_ids,sorted_passage_scores = self.graph_search_with_seed_entities(question,question_embedding,seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores, allowed_passage_hash_ids)
                 final_passage_hash_ids = sorted_passage_hash_ids[:self.config.retrieval_top_k]
                 final_passage_scores = sorted_passage_scores[:self.config.retrieval_top_k]
                 final_passages = [self.passage_embedding_store.hash_id_to_text[passage_hash_id] for passage_hash_id in final_passage_hash_ids]
             else:
-                sorted_passage_indices,sorted_passage_scores = self.dense_passage_retrieval(question_embedding)
+                sorted_passage_indices,sorted_passage_scores = self.dense_passage_retrieval(question_embedding, allowed_passage_hash_ids)
                 final_passage_indices = sorted_passage_indices[:self.config.retrieval_top_k]
                 final_passage_scores = sorted_passage_scores[:self.config.retrieval_top_k]
                 final_passages = [self.passage_embedding_store.texts[idx] for idx in final_passage_indices]
@@ -162,6 +202,8 @@ class LinearRAG:
                 "sorted_passage_scores": final_passage_scores,
                 "gold_answer": question_info["answer"]
             }
+            if chapter_info:
+                result.update(chapter_info)
             for annotation_key in ("reasoning_path", "supporting_facts", "gold_evidence", "evidence"):
                 if annotation_key in question_info:
                     result[annotation_key] = question_info[annotation_key]
@@ -223,17 +265,17 @@ class LinearRAG:
                 (num_sentences, num_entities), device=self.device
             )
 
-    def graph_search_with_seed_entities(self, question, question_embedding, seed_entity_indices, seed_entities, seed_entity_hash_ids, seed_entity_scores):
+    def graph_search_with_seed_entities(self, question, question_embedding, seed_entity_indices, seed_entities, seed_entity_hash_ids, seed_entity_scores, allowed_passage_hash_ids=None):
         if self.config.use_vectorized_retrieval:
             entity_weights, actived_entities = self.calculate_entity_scores_vectorized(question_embedding,seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores)
         else:
             entity_weights, actived_entities = self.calculate_entity_scores(question_embedding,seed_entity_indices,seed_entities,seed_entity_hash_ids,seed_entity_scores)
-        passage_weights = self.calculate_passage_scores(question, question_embedding, actived_entities)
+        passage_weights = self.calculate_passage_scores(question, question_embedding, actived_entities, allowed_passage_hash_ids)
         node_weights = entity_weights + passage_weights
-        ppr_sorted_passage_indices,ppr_sorted_passage_scores = self.run_ppr(node_weights)
+        ppr_sorted_passage_indices,ppr_sorted_passage_scores = self.run_ppr(node_weights, allowed_passage_hash_ids)
         return ppr_sorted_passage_indices,ppr_sorted_passage_scores
 
-    def run_ppr(self, node_weights):
+    def run_ppr(self, node_weights, allowed_passage_hash_ids=None):
         reset_prob = np.where(np.isnan(node_weights) | (node_weights < 0), 0, node_weights)
         pagerank_scores = self.graph.personalized_pagerank(
             vertices=range(len(self.node_name_to_vertex_idx)),
@@ -244,12 +286,15 @@ class LinearRAG:
             implementation='prpack'
         )
 
-        doc_scores = np.array([pagerank_scores[idx] for idx in self.passage_node_indices])
+        passage_indices = self.passage_node_indices
+        if allowed_passage_hash_ids is not None:
+            passage_indices = [idx for idx in passage_indices if self.vertex_idx_to_node_name[idx] in allowed_passage_hash_ids]
+        doc_scores = np.array([pagerank_scores[idx] for idx in passage_indices])
         sorted_indices_in_doc_scores = np.argsort(doc_scores)[::-1]
         sorted_passage_scores = doc_scores[sorted_indices_in_doc_scores]
 
         sorted_passage_hash_ids = [
-            self.vertex_idx_to_node_name[self.passage_node_indices[i]]
+            self.vertex_idx_to_node_name[passage_indices[i]]
             for i in sorted_indices_in_doc_scores
         ]
 
@@ -518,9 +563,9 @@ class LinearRAG:
 
         return entity_weights, actived_entities
 
-    def calculate_passage_scores(self, question, question_embedding, actived_entities):
+    def calculate_passage_scores(self, question, question_embedding, actived_entities, allowed_passage_hash_ids=None):
         passage_weights = np.zeros(len(self.graph.vs["name"]))
-        dpr_passage_indices, dpr_passage_scores = self.dense_passage_retrieval(question_embedding)
+        dpr_passage_indices, dpr_passage_scores = self.dense_passage_retrieval(question_embedding, allowed_passage_hash_ids)
         dpr_passage_scores = min_max_normalize(dpr_passage_scores)
         apply_attribute_boost = (
             self.config.enable_hybrid_attribute_fallback
@@ -552,10 +597,15 @@ class LinearRAG:
             passage_weights[passage_node_idx] = passage_score * self.config.passage_node_weight
         return passage_weights
 
-    def dense_passage_retrieval(self, question_embedding):
+    def dense_passage_retrieval(self, question_embedding, allowed_passage_hash_ids=None):
         question_emb = question_embedding.reshape(1, -1)
         question_passage_similarities = np.dot(self.passage_embeddings, question_emb.T).flatten()
         sorted_passage_indices = np.argsort(question_passage_similarities)[::-1]
+        if allowed_passage_hash_ids is not None:
+            sorted_passage_indices = np.array([
+                index for index in sorted_passage_indices
+                if self.passage_embedding_store.hash_ids[index] in allowed_passage_hash_ids
+            ])
         sorted_passage_scores = question_passage_similarities[sorted_passage_indices].tolist()
         return sorted_passage_indices, sorted_passage_scores
 
@@ -596,6 +646,10 @@ class LinearRAG:
         self.node_to_node_stats = defaultdict(dict)
         self.entity_to_sentence_stats = defaultdict(dict)
         self.passage_embedding_store.insert_text(passages)
+        self.passage_embeddings = np.asarray(self.passage_embedding_store.embeddings)
+        self._load_chapter_metadata(passages)
+        if self.config.enable_chapter_retrieval:
+            self._build_chapter_index()
         hash_id_to_passage = self.passage_embedding_store.get_hash_id_to_text()
         existing_passage_hash_id_to_entities,existing_sentence_to_entities, new_passage_hash_ids = self.load_existing_data(hash_id_to_passage.keys())
         if len(new_passage_hash_ids) > 0:
@@ -620,6 +674,27 @@ class LinearRAG:
         output_graphml_path = os.path.join(self.config.working_dir,self.dataset_name, "LinearRAG.graphml")
         os.makedirs(os.path.dirname(output_graphml_path), exist_ok=True)
         self.graph.write_graphml(output_graphml_path)
+
+    def _chapter_candidates(self, question_embedding):
+        scores = np.dot(self.chapter_embeddings, np.asarray(question_embedding).reshape(-1, 1)).flatten()
+        order = np.argsort(scores)[::-1]
+        selected = order[:max(1, self.config.chapter_top_k)]
+        selected_keys = [self.chapter_keys[i] for i in selected]
+        allowed = {index for index, key in self.passage_to_chapter.items() if key in selected_keys}
+        global_indices, global_scores = self.dense_passage_retrieval(question_embedding)
+        fallback = global_indices[:max(0, self.config.chapter_global_fallback)]
+        fallback_added = {int(index) for index in fallback if int(index) not in allowed}
+        allowed.update(int(index) for index in fallback)
+        allowed_hash_ids = {self.passage_embedding_store.hash_ids[index] for index in allowed}
+        return allowed_hash_ids, {
+            "retrieval_mode": "chapter_coarse_to_fine",
+            "selected_chapters": [
+                {"chapter": self.chapter_texts[key], "score": float(scores[i])}
+                for i, key in zip(selected, selected_keys)
+            ],
+            "chapter_candidate_passages": len(allowed),
+            "chapter_global_fallback": len(fallback_added),
+        }
 
     def add_adjacent_passage_edges(self):
         passage_id_to_text = self.passage_embedding_store.get_hash_id_to_text()
