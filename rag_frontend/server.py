@@ -222,7 +222,6 @@ def _runtime_status() -> dict[str, Any]:
         "defaultDataset": DATASET_NAME,
         "defaultCsvPath": DATASET_NAME,
         "apiBase": "/api",
-        "fmeaApiBase": "/api",
         "qaModel": QA_MODEL,
         "embeddingModel": EMBEDDING_MODEL,
         "topK": runtime["rag"].config.retrieval_top_k if runtime else DEFAULT_TOP_K,
