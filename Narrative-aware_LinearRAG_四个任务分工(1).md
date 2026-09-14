@@ -1,11 +1,11 @@
 # Narrative-aware LinearRAG：四个独立任务分工
 
-> 目标：将当前方案拆分为 **3 个创新任务 + 1 个独立对照实验任务**。  
+> 目标：将当前方案拆分为 **3 个创新任务 + 1 个独立对照实验任务**。<br>
 > 本版本**不包含最终模块合并、Full Model 集成、统一收尾等工作**，四个任务均按可独立推进的方式描述。
 
 ---
 
-## 任务 1：实体别名扩展  
+## 任务 1：实体别名扩展
 ### Alias-aware Entity Activation
 
 ### 任务目标
@@ -97,7 +97,7 @@ Entity {
 
 ---
 
-## 任务 2：书册感知软路由  
+## 任务 2：书册感知软路由
 ### Book-aware Soft Routing
 
 ### 任务目标
@@ -206,7 +206,7 @@ S(p)=S_{rag}(p)+\lambda S_{book}(p)
 
 ---
 
-## 任务 3：章节级粗到细检索  
+## 任务 3：章节级粗到细检索
 ### Chapter-level Coarse-to-Fine Retrieval
 
 ### 任务目标
@@ -245,7 +245,7 @@ Top-k Evidence
 
 即：
 
-> Chapter-level Coarse Retrieval  
+> Chapter-level Coarse Retrieval<br>
 > → Passage-level Fine Retrieval
 
 ### Chapter 表示方式
@@ -322,10 +322,10 @@ Chapter Summary
 
 ---
 
-## 任务 4：Baseline 与统一对照实验  
+## 任务 4：Baseline 与统一对照实验
 ### Baseline & Evaluation
 
-> 本任务只负责**建立可靠的对照实验和评测体系**，  
+> 本任务只负责**建立可靠的对照实验和评测体系**，<br>
 > **不负责三个创新模块最终合并，也不负责 Full Model 集成。**
 
 ### 任务目标
