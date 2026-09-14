@@ -1,0 +1,7 @@
+2026-09-07 22:01:33,750 - INFO - Load pretrained SentenceTransformer: /home/lizhaoxuan/KE-project/model/all-mpnet-base-v2
+2026-09-07 22:01:34,504 - INFO - Initializing LinearRAG with config: LinearRAGConfig(dataset_name='harrypotter', embedding_model=SentenceTransformer(
+  (0): Transformer({'max_seq_length': 384, 'do_lower_case': False}) with Transformer model: MPNetModel 
+  (1): Pooling({'word_embedding_dimension': 768, 'pooling_mode_cls_token': False, 'pooling_mode_mean_tokens': True, 'pooling_mode_max_tokens': False, 'pooling_mode_mean_sqrt_len_tokens': False})
+  (2): Normalize()
+), llm_model=<src.utils.LLM_Model object at 0x779cf29e27f0>, chunk_token_size=1000, chunk_overlap_token_size=100, spacy_model='en_core_web_trf', working_dir='./import', batch_size=128, max_workers=2, retrieval_top_k=8, max_iterations=3, top_k_sentence=3, passage_ratio=2.0, passage_node_weight=0.05, damping=0.5, iteration_threshold=0.4, use_vectorized_retrieval=False, enable_hybrid_attribute_fallback=False, attribute_keyword_boost=0.25, attribute_query_keywords=['born', 'birth', 'where', 'when', 'located', 'location', 'founded', 'founder', 'died', 'death', 'nationality', 'capital', 'date', 'year'])
+2026-09-07 22:01:34,504 - INFO - Using retrieval method: BFS Iteration

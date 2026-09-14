@@ -1,0 +1,64 @@
+{
+  "status": "evaluating",
+  "created_at_utc": "2026-09-07T14:01:33.702154+00:00",
+  "dataset_name": "harrypotter",
+  "question_dir": "dataset/question",
+  "qa_model": "qwen2.5:7b",
+  "judge_model": "qwen3.6:27b",
+  "retrieval_top_k": 8,
+  "question_batch_size": 10,
+  "question_sets": [
+    {
+      "name": "book1",
+      "source": "dataset/question/book1.json",
+      "sha256": "4acb1feed78ceb8dbe5fcb0420f891745ab8a26d1d7b0769032e82145540a4b0",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book2",
+      "source": "dataset/question/book2.json",
+      "sha256": "750cecb6fc5d35b20bedde21fd63d6dd09215e66069b485accbeae499f9d1aeb",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book3",
+      "source": "dataset/question/book3.json",
+      "sha256": "5d7cc52f0aec02c1f60691b674df5d9f2080a10a1649566dea2292683c2f6f4b",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book4",
+      "source": "dataset/question/book4.json",
+      "sha256": "74a4fc53a475de22b67eba8d78d42813ea24c8639029a8c659011d923d937a14",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book5",
+      "source": "dataset/question/book5.json",
+      "sha256": "80e79d7380a3dd888b49f4ca0369b293d87cdd7589e48ef4081800d447c4a636",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book6",
+      "source": "dataset/question/book6.json",
+      "sha256": "85128323de00a29513ca840f033270e84a30c7193ee8a1201e8c645120beb252",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book7",
+      "source": "dataset/question/book7.json",
+      "sha256": "b6679cfb8b5940c1228d1ce867cc640e0438f86ec226419bb4b3afc82cdfa850",
+      "question_count": 142,
+      "completed": 142
+    }
+  ],
+  "updated_at_utc": "2026-09-07T14:14:59.886601+00:00",
+  "combined_prediction_count": 1000,
+  "combined_predictions": "/home/lizhaoxuan/KE-project/results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/combined_predictions.json"
+}
