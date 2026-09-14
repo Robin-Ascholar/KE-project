@@ -1,0 +1,143 @@
+{
+  "experiment": "LinearRAG + conservative entity alias expansion + chapter coarse-to-fine retrieval",
+  "qa_model": "qwen2.5:7b",
+  "questions": 1000,
+  "retrieval_top_k": 8,
+  "settings": {
+    "chapter_retrieval": true,
+    "chapter_top_k": 16,
+    "chapter_global_fallback": 4,
+    "entity_alias_activation": true,
+    "alias_file": "dataset/harrypotter/entity_aliases.conservative.json",
+    "alias_expansion_budget": 0.75,
+    "max_alias_expansions": 8
+  },
+  "metrics": {
+    "calibrated_semantic_accuracy": 0.506,
+    "calibrated_semantic_correct": 506,
+    "qwen3.6_local_judge_accuracy": 0.497,
+    "paper_contain_accuracy": 0.275,
+    "answer_exact_match": 0.212,
+    "answer_token_f1": 0.34681217705190054,
+    "answer_rouge_l_f1": 0.3405863915028218,
+    "answer_semantic_similarity": 0.7579591360772029
+  },
+  "baseline": {
+    "human_semantic_accuracy": 0.492,
+    "human_correct": 492,
+    "qwen3.6_local_judge_accuracy": 0.478,
+    "paper_contain_accuracy": 0.266,
+    "answer_exact_match": 0.205,
+    "answer_token_f1": 0.3217979560731203,
+    "answer_rouge_l_f1": 0.3166754965855727
+  },
+  "change": {
+    "semantic_correct_delta": 14,
+    "semantic_accuracy_percentage_point_delta": 1.4000000000000012,
+    "old_wrong_to_new_correct": 108,
+    "old_correct_to_new_wrong": 94,
+    "answers_changed": 632
+  },
+  "calibration": {
+    "identical_answers_with_prior_human_labels": 368,
+    "judge_human_agreement": 0.970108695652174,
+    "agreement_count": 357,
+    "confusion_human_judge": {
+      "1_1": 265,
+      "0_0": 92,
+      "1_0": 10,
+      "0_1": 1
+    },
+    "note": "Identical answers inherit prior human labels. Changed answers use the local qwen3.6:27b semantic judge; therefore 50.6% is a calibrated hybrid semantic score, not a fresh 1000-item human annotation."
+  },
+  "retrieval_proxy": {
+    "baseline": {
+      "gold_answer_lexical_hit_at_8": 0.282,
+      "lexical_mrr_at_8": 0.15096190476190485,
+      "answer_bearing_passage_ratio_at_8": 0.09125,
+      "hit_count": 282
+    },
+    "combined": {
+      "gold_answer_lexical_hit_at_8": 0.302,
+      "lexical_mrr_at_8": 0.18251428571428568,
+      "answer_bearing_passage_ratio_at_8": 0.104875,
+      "hit_count": 302
+    }
+  },
+  "per_book": {
+    "book1": {
+      "correct": 81,
+      "total": 143,
+      "calibrated_semantic_accuracy": 0.5664335664335665,
+      "local_judge_accuracy": 0.5594405594405595,
+      "contain_accuracy": 0.3356643356643357,
+      "exact_match": 0.27972027972027974,
+      "token_f1": 0.4014344209524311,
+      "rouge_l_f1": 0.39704595072818377
+    },
+    "book2": {
+      "correct": 76,
+      "total": 143,
+      "calibrated_semantic_accuracy": 0.5314685314685315,
+      "local_judge_accuracy": 0.5314685314685315,
+      "contain_accuracy": 0.32167832167832167,
+      "exact_match": 0.26573426573426573,
+      "token_f1": 0.3991515487932901,
+      "rouge_l_f1": 0.39404481194213126
+    },
+    "book3": {
+      "correct": 86,
+      "total": 143,
+      "calibrated_semantic_accuracy": 0.6013986013986014,
+      "local_judge_accuracy": 0.5944055944055944,
+      "contain_accuracy": 0.38461538461538464,
+      "exact_match": 0.32167832167832167,
+      "token_f1": 0.431854222277203,
+      "rouge_l_f1": 0.42755422934084647
+    },
+    "book4": {
+      "correct": 80,
+      "total": 143,
+      "calibrated_semantic_accuracy": 0.5594405594405595,
+      "local_judge_accuracy": 0.5454545454545454,
+      "contain_accuracy": 0.3356643356643357,
+      "exact_match": 0.2727272727272727,
+      "token_f1": 0.4194118177300184,
+      "rouge_l_f1": 0.4075876333634021
+    },
+    "book5": {
+      "correct": 77,
+      "total": 143,
+      "calibrated_semantic_accuracy": 0.5384615384615384,
+      "local_judge_accuracy": 0.5174825174825175,
+      "contain_accuracy": 0.2097902097902098,
+      "exact_match": 0.1258741258741259,
+      "token_f1": 0.3072179180898399,
+      "rouge_l_f1": 0.3018886387968649
+    },
+    "book6": {
+      "correct": 54,
+      "total": 143,
+      "calibrated_semantic_accuracy": 0.3776223776223776,
+      "local_judge_accuracy": 0.3706293706293706,
+      "contain_accuracy": 0.1888111888111888,
+      "exact_match": 0.11188811188811189,
+      "token_f1": 0.24380109705515998,
+      "rouge_l_f1": 0.23870112453437298
+    },
+    "book7": {
+      "correct": 52,
+      "total": 142,
+      "calibrated_semantic_accuracy": 0.36619718309859156,
+      "local_judge_accuracy": 0.3591549295774648,
+      "contain_accuracy": 0.14788732394366197,
+      "exact_match": 0.1056338028169014,
+      "token_f1": 0.22395507388376448,
+      "rouge_l_f1": 0.216414013506279
+    }
+  },
+  "limitations": [
+    "The question files do not include gold supporting-fact paths, so true multi-hop path coverage cannot be computed from these 1000 items.",
+    "Context precision and evidence recall requiring semantic passage annotation were not run; lexical retrieval proxies are reported instead."
+  ]
+}
