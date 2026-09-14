@@ -38,6 +38,7 @@
             this.isSending = false;
             this.isGraphBusy = false;
             this.statusTimer = null;
+            this.graphTransform = { x: 0, y: 0, scale: 1 };
         }
 
         collectElements() {
@@ -47,10 +48,10 @@
                 'pageTitle', 'pageSubtitle', 'mobileMenuButton', 'topKMinus', 'topKInput', 'topKPlus',
                 'applyTopKButton', 'topbarStatusButton', 'topbarStatusDot', 'topbarStatusText',
                 'mobileTopKMinus', 'mobileTopKInput', 'mobileTopKPlus', 'mobileApplyTopKButton',
-                'detailsToggle', 'queryView', 'graphView', 'datasetPathLabel', 'openGraphButton',
+                'detailsToggle', 'queryView', 'graphView', 'queryLayout', 'datasetPathLabel', 'openGraphButton',
                 'conversation', 'questionForm', 'questionInput', 'sendButton', 'composerState',
                 'detailsPanel', 'closeDetailsButton', 'downloadResultButton', 'resultTimestamp',
-                'evidenceCount', 'evidencePane', 'diagnosticsPane', 'rawPane', 'graphOperationState',
+                'evidenceCount', 'graphNodeCount', 'evidencePane', 'knowledgeGraphPane', 'diagnosticsPane', 'rawPane', 'graphOperationState',
                 'csvPathInput', 'resetCsvButton', 'buildGraphButton', 'refreshServiceButton',
                 'backendInlineState', 'backendInlineText', 'apiBaseLabel', 'timeoutLabel',
                 'clearActivityButton', 'activityList', 'openClearModalButton', 'clearGraphModal',
@@ -134,6 +135,7 @@
             });
 
             e.downloadResultButton.addEventListener('click', () => this.downloadLatestResult());
+            e.knowledgeGraphPane.addEventListener('click', (event) => this.handleGraphClick(event));
 
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') this.closeOverlays();
@@ -369,6 +371,9 @@
                                             <button class="icon-button" type="button" data-inspect-answer="${index}" title="查看检索详情" aria-label="查看检索详情">
                                                 <i data-lucide="panel-right-open" aria-hidden="true"></i>
                                             </button>
+                                            <button class="icon-button" type="button" data-view-graph="${index}" title="查看知识图谱" aria-label="查看知识图谱">
+                                                <i data-lucide="share-2" aria-hidden="true"></i>
+                                            </button>
                                         ` : ''}
                                     </div>
                                 `}
@@ -397,6 +402,18 @@
             if (copyButton) {
                 const turn = this.activeSession()?.turns[Number(copyButton.dataset.copyAnswer)];
                 if (turn?.result?.answer) this.copyText(turn.result.answer, '答案已复制');
+                return;
+            }
+
+            const graphButton = event.target.closest('[data-view-graph]');
+            if (graphButton) {
+                const turn = this.activeSession()?.turns[Number(graphButton.dataset.viewGraph)];
+                if (turn?.result) {
+                    this.latestResult = turn.result;
+                    this.renderDetails(turn.result);
+                    this.switchDetailTab('knowledge-graph');
+                    this.openDetails();
+                }
                 return;
             }
 
@@ -482,7 +499,9 @@
                 this.elements.evidencePane.innerHTML = empty;
                 this.elements.diagnosticsPane.innerHTML = empty;
                 this.elements.rawPane.innerHTML = empty;
+                this.elements.knowledgeGraphPane.innerHTML = this.graphEmpty('完成一次问答后，将展示本次检索命中的局部知识图谱');
                 this.elements.evidenceCount.textContent = '0';
+                this.elements.graphNodeCount.textContent = '0';
                 this.refreshIcons();
                 return;
             }
@@ -500,6 +519,10 @@
                     </article>
                 `).join('')
                 : this.detailEmpty('inbox', '后端未返回检索证据');
+
+            const graph = result.graph && typeof result.graph === 'object' ? result.graph : null;
+            this.elements.graphNodeCount.textContent = String(graph?.nodes?.length || 0);
+            this.renderKnowledgeGraph(graph);
 
             const backend = this.backendPayload(result);
             const routeConfidence = backend.route_confidence;
@@ -526,6 +549,272 @@
             this.elements.rawPane.innerHTML = `<pre class="raw-json">${this.escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
             this.refreshIcons();
         }
+
+        graphEmpty(message) {
+            return `<div class="kg-empty"><i data-lucide="share-2" aria-hidden="true"></i><span>${this.escapeHtml(message)}</span></div>`;
+        }
+
+        renderKnowledgeGraph(graph) {
+            const pane = this.elements.knowledgeGraphPane;
+            const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
+            const edges = Array.isArray(graph?.edges) ? graph.edges : [];
+            if (!nodes.length) {
+                pane.innerHTML = this.graphEmpty('本次检索没有返回可展示的图谱节点');
+                this.refreshIcons();
+                return;
+            }
+
+            const width = 900;
+            const height = 600;
+            const nodeMap = new Map();
+            const passages = nodes.filter((node) => node.type === 'passage');
+            const passageIndex = new Map(passages.map((node, index) => [node.id, index]));
+            const edgeMap = new Map();
+            edges.forEach((edge) => {
+                if (!edgeMap.has(edge.source)) edgeMap.set(edge.source, []);
+                if (!edgeMap.has(edge.target)) edgeMap.set(edge.target, []);
+                edgeMap.get(edge.source).push(edge.target);
+                edgeMap.get(edge.target).push(edge.source);
+            });
+
+            nodes.forEach((node, index) => {
+                let angle;
+                let radius;
+                if (node.type === 'passage') {
+                    angle = (Math.PI * 2 * (passageIndex.get(node.id) || 0)) / Math.max(1, passages.length) - Math.PI / 2;
+                    radius = passages.length === 1 ? 0 : 145;
+                } else {
+                    const linkedPassage = (edgeMap.get(node.id) || []).find((id) => passageIndex.has(id));
+                    const anchor = passageIndex.get(linkedPassage) || 0;
+                    const seed = this.stableHash(node.id);
+                    angle = (Math.PI * 2 * anchor) / Math.max(1, passages.length) + ((seed % 100) / 100 - 0.5) * 1.35;
+                    radius = 235 + (seed % 105);
+                }
+                nodeMap.set(node.id, {
+                    ...node,
+                    x: width / 2 + Math.cos(angle) * radius,
+                    y: height / 2 + Math.sin(angle) * radius,
+                    vx: 0,
+                    vy: 0,
+                });
+            });
+
+            const validEdges = edges.filter((edge) => nodeMap.has(edge.source) && nodeMap.has(edge.target));
+            const layoutNodes = [...nodeMap.values()];
+            for (let tick = 0; tick < 150; tick += 1) {
+                const alpha = 1 - tick / 150;
+                for (let i = 0; i < layoutNodes.length; i += 1) {
+                    const a = layoutNodes[i];
+                    for (let j = i + 1; j < layoutNodes.length; j += 1) {
+                        const b = layoutNodes[j];
+                        let dx = b.x - a.x;
+                        let dy = b.y - a.y;
+                        const distance2 = Math.max(80, dx * dx + dy * dy);
+                        const force = 1250 * alpha / distance2;
+                        const distance = Math.sqrt(distance2);
+                        dx /= distance;
+                        dy /= distance;
+                        a.vx -= dx * force;
+                        a.vy -= dy * force;
+                        b.vx += dx * force;
+                        b.vy += dy * force;
+                    }
+                }
+                validEdges.forEach((edge) => {
+                    const a = nodeMap.get(edge.source);
+                    const b = nodeMap.get(edge.target);
+                    const dx = b.x - a.x;
+                    const dy = b.y - a.y;
+                    const distance = Math.max(1, Math.hypot(dx, dy));
+                    const desired = a.type === 'passage' || b.type === 'passage' ? 105 : 135;
+                    const force = (distance - desired) * 0.018 * alpha;
+                    a.vx += dx / distance * force;
+                    a.vy += dy / distance * force;
+                    b.vx -= dx / distance * force;
+                    b.vy -= dy / distance * force;
+                });
+                layoutNodes.forEach((node) => {
+                    node.vx += (width / 2 - node.x) * 0.0018 * alpha;
+                    node.vy += (height / 2 - node.y) * 0.0018 * alpha;
+                    node.vx *= 0.78;
+                    node.vy *= 0.78;
+                    node.x = Math.max(42, Math.min(width - 42, node.x + node.vx));
+                    node.y = Math.max(42, Math.min(height - 42, node.y + node.vy));
+                });
+            }
+
+            const stats = graph.stats || {};
+            pane.innerHTML = `
+                <div class="kg-shell">
+                    <div class="kg-toolbar">
+                        <div>
+                            <strong>查询局部图谱</strong>
+                            <span>${stats.entities || nodes.filter((n) => n.type === 'entity').length} 个实体 · ${stats.passages || passages.length} 个段落 · ${stats.relations || validEdges.length} 条关系</span>
+                        </div>
+                        <div class="kg-actions">
+                            <button type="button" data-graph-action="zoom-out" title="缩小" aria-label="缩小"><i data-lucide="minus"></i></button>
+                            <button type="button" data-graph-action="reset" title="复位" aria-label="复位"><i data-lucide="maximize-2"></i></button>
+                            <button type="button" data-graph-action="zoom-in" title="放大" aria-label="放大"><i data-lucide="plus"></i></button>
+                        </div>
+                    </div>
+                    <div class="kg-canvas-wrap">
+                        <svg class="kg-canvas" viewBox="0 0 ${width} ${height}" role="img" aria-label="本次问答检索到的局部知识图谱">
+                            <defs>
+                                <filter id="kgGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                            </defs>
+                            <g class="kg-viewport">
+                                <g class="kg-edges">
+                                    ${validEdges.map((edge, index) => {
+                                        const a = nodeMap.get(edge.source);
+                                        const b = nodeMap.get(edge.target);
+                                        return `<line data-edge-index="${index}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"></line>`;
+                                    }).join('')}
+                                </g>
+                                <g class="kg-nodes">
+                                    ${layoutNodes.map((node) => {
+                                        const nodeClass = node.type === 'passage' ? 'is-passage' : node.is_seed ? 'is-seed' : 'is-entity';
+                                        const radius = node.type === 'passage' ? 15 : node.is_seed ? 12 : 9;
+                                        const label = this.truncateLabel(node.label, node.type === 'passage' ? 22 : 18);
+                                        const nodeDetail = node.type === 'passage' ? (node.chapter_title || '检索证据段落') : `${node.is_seed ? '问题实体' : '相关实体'} · 连接 ${Number(node.degree) || 0} 个检索段落`;
+                                        return `<g class="kg-node ${nodeClass}" data-node-id="${this.escapeHtml(node.id)}" transform="translate(${node.x.toFixed(1)} ${node.y.toFixed(1)})" tabindex="0" role="button" aria-label="${this.escapeHtml(node.label)}" data-node-label="${this.escapeHtml(node.label)}" data-node-detail="${this.escapeHtml(nodeDetail)}" onclick="document.getElementById('kgInspector').textContent=this.dataset.nodeLabel+' · '+this.dataset.nodeDetail">
+                                            <circle r="${radius}"></circle>
+                                            <text y="${radius + 16}" text-anchor="middle">${this.escapeHtml(label)}</text>
+                                        </g>`;
+                                    }).join('')}
+                                </g>
+                            </g>
+                        </svg>
+                        <div class="kg-hint">滚轮缩放 · 拖动画布 · 拖拽节点 · 点击查看详情</div>
+                    </div>
+                    <div class="kg-footer">
+                        <div class="kg-legend"><span><i class="seed"></i>问题实体</span><span><i class="entity"></i>相关实体</span><span><i class="passage"></i>检索段落</span><span><b></b>实体出现在段落中</span></div>
+                        <div class="kg-inspector" id="kgInspector">点击节点查看内容</div>
+                    </div>
+                </div>
+            `;
+            this.refreshIcons();
+            this.installGraphInteractions(nodeMap, validEdges);
+        }
+
+        installGraphInteractions(nodeMap, edges) {
+            const svg = this.elements.knowledgeGraphPane.querySelector('.kg-canvas');
+            const viewport = svg?.querySelector('.kg-viewport');
+            if (!svg || !viewport) return;
+            this.graphTransform = { x: 0, y: 0, scale: 1 };
+            const applyTransform = () => {
+                const t = this.graphTransform;
+                viewport.setAttribute('transform', `translate(${t.x} ${t.y}) scale(${t.scale})`);
+            };
+            const updateNode = (id) => {
+                const node = nodeMap.get(id);
+                const group = svg.querySelector(`[data-node-id="${CSS.escape(id)}"]`);
+                if (group) group.setAttribute('transform', `translate(${node.x.toFixed(1)} ${node.y.toFixed(1)})`);
+                edges.forEach((edge, index) => {
+                    if (edge.source !== id && edge.target !== id) return;
+                    const line = svg.querySelector(`[data-edge-index="${index}"]`);
+                    const a = nodeMap.get(edge.source);
+                    const b = nodeMap.get(edge.target);
+                    if (line) {
+                        line.setAttribute('x1', a.x.toFixed(1));
+                        line.setAttribute('y1', a.y.toFixed(1));
+                        line.setAttribute('x2', b.x.toFixed(1));
+                        line.setAttribute('y2', b.y.toFixed(1));
+                    }
+                });
+            };
+            const svgPoint = (event) => {
+                const point = svg.createSVGPoint();
+                point.x = event.clientX;
+                point.y = event.clientY;
+                return point.matrixTransform(svg.getScreenCTM().inverse());
+            };
+            let interaction = null;
+            svg.addEventListener('pointerdown', (event) => {
+                const nodeElement = event.target.closest?.('.kg-node');
+                const point = svgPoint(event);
+                if (nodeElement) {
+                    interaction = { type: 'node', id: nodeElement.dataset.nodeId };
+                } else {
+                    interaction = { type: 'pan', startX: point.x, startY: point.y, originX: this.graphTransform.x, originY: this.graphTransform.y };
+                    svg.setPointerCapture(event.pointerId);
+                }
+            });
+            svg.addEventListener('pointermove', (event) => {
+                if (!interaction) return;
+                const point = svgPoint(event);
+                if (interaction.type === 'pan') {
+                    this.graphTransform.x = interaction.originX + point.x - interaction.startX;
+                    this.graphTransform.y = interaction.originY + point.y - interaction.startY;
+                    applyTransform();
+                } else {
+                    const node = nodeMap.get(interaction.id);
+                    node.x = (point.x - this.graphTransform.x) / this.graphTransform.scale;
+                    node.y = (point.y - this.graphTransform.y) / this.graphTransform.scale;
+                    updateNode(interaction.id);
+                }
+            });
+            svg.querySelectorAll('.kg-node').forEach((nodeElement) => {
+                nodeElement.addEventListener('pointerup', () => {
+                    if (interaction?.type === 'node') this.selectGraphNode(nodeElement);
+                });
+            });
+            const endInteraction = () => { interaction = null; };
+            svg.addEventListener('pointerup', endInteraction);
+            svg.addEventListener('pointercancel', endInteraction);
+            svg.addEventListener('wheel', (event) => {
+                event.preventDefault();
+                const factor = event.deltaY < 0 ? 1.12 : 0.89;
+                this.graphTransform.scale = Math.max(0.45, Math.min(2.6, this.graphTransform.scale * factor));
+                applyTransform();
+            }, { passive: false });
+            this._applyGraphTransform = (action) => {
+                if (action === 'reset') this.graphTransform = { x: 0, y: 0, scale: 1 };
+                if (action === 'zoom-in') this.graphTransform.scale = Math.min(2.6, this.graphTransform.scale * 1.2);
+                if (action === 'zoom-out') this.graphTransform.scale = Math.max(0.45, this.graphTransform.scale / 1.2);
+                applyTransform();
+            };
+            this._graphNodeMap = nodeMap;
+        }
+
+        handleGraphClick(event) {
+            const action = event.target.closest('[data-graph-action]');
+            if (action) {
+                this._applyGraphTransform?.(action.dataset.graphAction);
+                return;
+            }
+            const nodeElement = event.target.closest('.kg-node');
+            if (nodeElement) this.selectGraphNode(nodeElement);
+        }
+
+        selectGraphNode(nodeElement) {
+            if (!nodeElement || !this._graphNodeMap) return;
+            const node = this._graphNodeMap.get(nodeElement.dataset.nodeId);
+            if (!node) return;
+            this.elements.knowledgeGraphPane.querySelectorAll('.kg-node.is-selected').forEach((item) => item.classList.remove('is-selected'));
+            nodeElement.classList.add('is-selected');
+            const inspector = this.elements.knowledgeGraphPane.querySelector('#kgInspector');
+            if (!inspector) return;
+            if (node.type === 'passage') {
+                inspector.innerHTML = `<strong>${this.escapeHtml(node.label)}</strong><span>${this.escapeHtml(node.chapter_title || '')}</span><p>${this.escapeHtml(this.truncateLabel(node.passage || '', 260))}</p>`;
+            } else {
+                inspector.innerHTML = `<strong>${this.escapeHtml(node.label)}</strong><span>${node.is_seed ? '问题实体' : '相关实体'} · 连接 ${Number(node.degree) || 0} 个检索段落</span>`;
+            }
+        }
+
+        stableHash(value) {
+            let hash = 2166136261;
+            for (let index = 0; index < String(value).length; index += 1) {
+                hash ^= String(value).charCodeAt(index);
+                hash = Math.imul(hash, 16777619);
+            }
+            return Math.abs(hash >>> 0);
+        }
+
+        truncateLabel(value, limit) {
+            const text = String(value || '').replace(/\s+/g, ' ').trim();
+            return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+        }
+
 
         collectEvidence(result) {
             const items = [];
@@ -557,6 +846,7 @@
 
         switchDetailTab(tab) {
             this.activeDetailTab = tab;
+            this.elements.queryLayout.classList.toggle('is-graph-expanded', tab === 'knowledge-graph');
             document.querySelectorAll('[data-detail-tab]').forEach((button) => {
                 button.classList.toggle('is-active', button.dataset.detailTab === tab);
                 button.setAttribute('aria-selected', button.dataset.detailTab === tab ? 'true' : 'false');

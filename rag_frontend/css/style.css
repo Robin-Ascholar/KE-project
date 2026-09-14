@@ -2492,3 +2492,304 @@ svg {
         animation-iteration-count: 1 !important;
     }
 }
+
+/* Query-local knowledge graph */
+.detail-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.detail-tab {
+    padding: 0 5px;
+    white-space: nowrap;
+}
+
+@media (min-width: 921px) {
+    .query-layout.is-graph-expanded {
+        grid-template-columns: minmax(360px, 0.72fr) minmax(600px, 1.28fr);
+    }
+}
+
+.graph-pane {
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #102d46;
+}
+
+.graph-pane.is-active {
+    display: flex;
+}
+
+.kg-shell {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    background:
+        radial-gradient(circle at 50% 42%, rgba(38, 100, 147, 0.42), transparent 54%),
+        linear-gradient(145deg, #173a57 0%, #10283e 100%);
+    color: #f1f7fb;
+}
+
+.kg-toolbar {
+    display: flex;
+    min-height: 60px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(189, 218, 237, 0.14);
+    background: rgba(8, 30, 47, 0.72);
+}
+
+.kg-toolbar > div:first-child {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.kg-toolbar strong {
+    font-size: 13px;
+    letter-spacing: 0.02em;
+}
+
+.kg-toolbar span {
+    overflow: hidden;
+    color: #a9c8dc;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kg-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 5px;
+}
+
+.kg-actions button {
+    display: grid;
+    width: 29px;
+    height: 29px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(182, 216, 237, 0.22);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #d9edf8;
+}
+
+.kg-actions button:hover {
+    border-color: rgba(94, 196, 236, 0.7);
+    background: rgba(53, 161, 208, 0.2);
+}
+
+.kg-actions svg {
+    width: 14px;
+    height: 14px;
+}
+
+.kg-canvas-wrap {
+    position: relative;
+    min-height: 320px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.kg-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 320px;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+}
+
+.kg-canvas:active {
+    cursor: grabbing;
+}
+
+.kg-edges line {
+    stroke: rgba(179, 211, 230, 0.42);
+    stroke-width: 1.15;
+    vector-effect: non-scaling-stroke;
+}
+
+.kg-node {
+    cursor: pointer;
+}
+
+.kg-node circle {
+    stroke: rgba(255, 255, 255, 0.92);
+    stroke-width: 2;
+    transition: r 140ms ease, stroke-width 140ms ease;
+    vector-effect: non-scaling-stroke;
+}
+
+.kg-node text {
+    fill: #e8f3f9;
+    font-family: "Inter", "Segoe UI", sans-serif;
+    font-size: 10px;
+    paint-order: stroke;
+    pointer-events: none;
+    stroke: #102b43;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+}
+
+.kg-node.is-entity circle {
+    fill: #46c9bd;
+}
+
+.kg-node.is-seed circle {
+    fill: #ef6f68;
+    filter: url(#kgGlow);
+}
+
+.kg-node.is-passage circle {
+    fill: #f3c94f;
+}
+
+.kg-node:hover circle,
+.kg-node.is-selected circle {
+    stroke-width: 4;
+}
+
+.kg-node.is-selected text {
+    fill: #ffffff;
+    font-weight: 750;
+}
+
+.kg-hint {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    background: rgba(5, 24, 38, 0.72);
+    color: #a9c8dc;
+    font-size: 9px;
+    pointer-events: none;
+}
+
+.kg-footer {
+    border-top: 1px solid rgba(189, 218, 237, 0.14);
+    background: rgba(8, 27, 43, 0.82);
+}
+
+.kg-legend {
+    display: flex;
+    min-height: 38px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 7px 14px;
+    color: #bcd4e3;
+    font-size: 9px;
+}
+
+.kg-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.kg-legend i {
+    width: 8px;
+    height: 8px;
+    border: 1px solid #ffffff;
+    border-radius: 50%;
+}
+
+.kg-legend i.seed { background: #ef6f68; }
+.kg-legend i.entity { background: #46c9bd; }
+.kg-legend i.passage { background: #f3c94f; }
+
+.kg-legend b {
+    width: 18px;
+    height: 1px;
+    background: rgba(179, 211, 230, 0.7);
+}
+
+.kg-inspector {
+    min-height: 47px;
+    padding: 9px 14px;
+    border-top: 1px solid rgba(189, 218, 237, 0.1);
+    color: #9fbdd0;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.kg-inspector strong,
+.kg-inspector span {
+    display: block;
+}
+
+.kg-inspector strong {
+    color: #ffffff;
+    font-size: 11px;
+}
+
+.kg-inspector span {
+    margin-top: 2px;
+    color: #6fc9ec;
+}
+
+.kg-inspector p {
+    max-height: 58px;
+    margin: 5px 0 0;
+    overflow: auto;
+    color: #bdd1de;
+}
+
+.kg-empty {
+    display: grid;
+    min-height: 240px;
+    flex: 1;
+    place-items: center;
+    align-content: center;
+    gap: 10px;
+    padding: 24px;
+    color: #abc5d5;
+    font-size: 11px;
+    text-align: center;
+}
+
+.kg-empty svg {
+    width: 28px;
+    height: 28px;
+    color: #53b9df;
+}
+
+@media (max-width: 920px) {
+    .details-panel:has(.graph-pane.is-active) {
+        width: min(720px, 96vw);
+    }
+}
+
+@media (max-width: 520px) {
+    .detail-tab {
+        font-size: 9px;
+    }
+
+    .detail-tab span {
+        display: none;
+    }
+
+    .kg-toolbar {
+        min-height: 54px;
+    }
+
+    .kg-canvas-wrap,
+    .kg-canvas {
+        min-height: 280px;
+    }
+
+    .kg-hint {
+        display: none;
+    }
+}

@@ -251,6 +251,103 @@ def _passage_payload(passage: str, score: Any, rank: int) -> dict[str, Any]:
     return item
 
 
+def _graph_payload(
+    runtime: dict[str, Any],
+    result: dict[str, Any],
+    question: str,
+    max_passages: int = 6,
+    max_entities: int = 28,
+) -> dict[str, Any]:
+    """Build a compact, query-local subgraph from the real LinearRAG graph."""
+    rag = runtime["rag"]
+    graph = rag.graph
+    passage_rows: list[tuple[str, str, float, int]] = []
+    scores = result.get("sorted_passage_scores", [])
+
+    for rank, passage in enumerate(result.get("sorted_passage", [])[:max_passages], 1):
+        passage_id = rag.passage_embedding_store.text_to_hash_id.get(passage)
+        if not passage_id or passage_id not in rag.node_name_to_vertex_idx:
+            continue
+        score = float(scores[rank - 1]) if rank - 1 < len(scores) else 0.0
+        passage_rows.append((passage_id, passage, score, rank))
+
+    candidates: dict[str, dict[str, Any]] = {}
+    mentions: list[tuple[str, str, float]] = []
+    for passage_id, _passage, passage_score, _rank in passage_rows:
+        vertex_index = rag.node_name_to_vertex_idx[passage_id]
+        for neighbor_index in graph.neighbors(vertex_index):
+            vertex = graph.vs[neighbor_index]
+            entity_id = vertex["name"]
+            if not str(entity_id).startswith("entity-"):
+                continue
+            edge_id = graph.get_eid(vertex_index, neighbor_index, directed=False, error=False)
+            edge_weight = float(graph.es[edge_id]["weight"]) if edge_id >= 0 else 0.0
+            item = candidates.setdefault(entity_id, {
+                "id": entity_id,
+                "label": str(vertex["content"]),
+                "score": 0.0,
+                "degree": 0,
+            })
+            item["score"] += max(passage_score, 0.000001) * max(edge_weight, 0.000001)
+            item["degree"] += 1
+            mentions.append((entity_id, passage_id, edge_weight))
+
+    question_lower = question.casefold()
+    ranked_entities = sorted(
+        candidates.values(),
+        key=lambda item: (
+            item["label"].casefold() in question_lower,
+            item["degree"],
+            item["score"],
+        ),
+        reverse=True,
+    )[:max_entities]
+    selected_entities = {item["id"] for item in ranked_entities}
+
+    nodes: list[dict[str, Any]] = []
+    for item in ranked_entities:
+        nodes.append({
+            **item,
+            "type": "entity",
+            "is_seed": item["label"].casefold() in question_lower,
+        })
+
+    for passage_id, passage, score, rank in passage_rows:
+        clean = re.sub(r"^\d+:\s*", "", str(passage), count=1)
+        match = re.match(r"Book\s+(\d+)\s+\|\s+Chapter\s+(\d+):\s*([^\n]*)", clean, re.I)
+        label = f"Evidence {rank}"
+        metadata: dict[str, Any] = {"rank": rank, "score": score, "passage": clean}
+        if match:
+            label = f"Book {match.group(1)} · Ch {match.group(2)}"
+            metadata.update({
+                "book": int(match.group(1)),
+                "chapter": int(match.group(2)),
+                "chapter_title": match.group(3).strip(),
+            })
+        nodes.append({
+            "id": passage_id,
+            "label": label,
+            "type": "passage",
+            **metadata,
+        })
+
+    edges = [
+        {"source": entity_id, "target": passage_id, "label": "appears in", "weight": weight}
+        for entity_id, passage_id, weight in mentions
+        if entity_id in selected_entities
+    ]
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "legend": {"seed": "问题实体", "entity": "相关实体", "passage": "检索段落"},
+        "stats": {
+            "entities": len(ranked_entities),
+            "passages": len(passage_rows),
+            "relations": len(edges),
+        },
+    }
+
+
 @app.after_request
 def _cors_headers(response):
     if CORS is None:
@@ -321,6 +418,7 @@ def chat():
         "chapter_candidate_passages": result.get("chapter_candidate_passages"),
         "chapter_global_fallback": result.get("chapter_global_fallback"),
     }
+    graph_payload = _graph_payload(runtime, result, question)
     return jsonify({
         "ok": True,
         "answer": result.get("pred_answer", ""),
@@ -334,7 +432,8 @@ def chat():
         "answer_file": QA_MODEL,
         "query_ir": diagnostics,
         "diagnostics": diagnostics,
-        "raw": {"question": question, "answer": result.get("pred_answer", ""), "evidence": evidence, **diagnostics},
+        "graph": graph_payload,
+        "raw": {"question": question, "answer": result.get("pred_answer", ""), "evidence": evidence, "graph": graph_payload, **diagnostics},
     })
 
 
