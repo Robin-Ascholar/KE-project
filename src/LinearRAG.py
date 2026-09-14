@@ -1,4 +1,5 @@
 from src.embedding_store import EmbeddingStore
+from src.entity_aliases import EntityAliasResolver
 from src.utils import min_max_normalize
 import os
 import json
@@ -31,6 +32,7 @@ class LinearRAG:
         self.load_embedding_store()
         self.llm_model = self.config.llm_model
         self.spacy_ner = SpacyNER(self.config.spacy_model)
+        self.entity_alias_resolver = EntityAliasResolver(self.config.entity_alias_groups)
         self.graph = ig.Graph(directed=False)
 
     def load_embedding_store(self):
@@ -162,9 +164,14 @@ class LinearRAG:
                 "sorted_passage_scores": final_passage_scores,
                 "gold_answer": question_info["answer"]
             }
-            for annotation_key in ("reasoning_path", "supporting_facts", "gold_evidence", "evidence"):
+            for annotation_key in (
+                "reasoning_path", "supporting_facts", "gold_evidence", "evidence",
+                "book_number", "question_set", "question_index", "split",
+            ):
                 if annotation_key in question_info:
                     result[annotation_key] = question_info[annotation_key]
+            if self.config.enable_entity_alias_expansion:
+                result["alias_activation"] = self._last_alias_activation
             retrieval_results.append(result)
         return retrieval_results
 
@@ -572,24 +579,70 @@ class LinearRAG:
 
     def get_seed_entities(self, question):
         question_entities = list(self.spacy_ner.question_ner(question))
-        if len(question_entities) == 0:
+        primary_terms = question_entities
+        expansion_groups = {}
+        matched_groups = {}
+        if self.config.enable_entity_alias_expansion:
+            if not 0.0 <= self.config.alias_expansion_budget <= 1.0:
+                raise ValueError("alias_expansion_budget must be in [0, 1]")
+            primary_terms, expansion_groups, matched_groups = (
+                self.entity_alias_resolver.expansion_plan(question, question_entities)
+            )
+        all_terms = primary_terms + [
+            term for terms in expansion_groups.values() for term in terms
+        ]
+        if len(all_terms) == 0:
+            self._last_alias_activation = {
+                "matched_groups": [], "matched_surfaces": {}, "added_seed_entities": []
+            }
             return [],[],[],[]
-        question_entity_embeddings = self.config.embedding_model.encode(question_entities,normalize_embeddings=True,show_progress_bar=False,batch_size=self.config.batch_size)
+        question_entity_embeddings = self.config.embedding_model.encode(all_terms,normalize_embeddings=True,show_progress_bar=False,batch_size=self.config.batch_size)
         similarities = np.dot(self.entity_embeddings, question_entity_embeddings.T)
-        seed_entity_indices = []
-        seed_entity_texts = []
-        seed_entity_hash_ids = []
-        seed_entity_scores = []
-        for query_entity_idx in range(len(question_entities)):
+        selected: dict[int, tuple[str, str, float]] = {}
+
+        def add_term(query_entity_idx, score_multiplier):
             entity_scores = similarities[:, query_entity_idx]
-            best_entity_idx = np.argmax(entity_scores)
-            best_entity_score = entity_scores[best_entity_idx]
+            best_entity_idx = int(np.argmax(entity_scores))
+            best_entity_score = float(entity_scores[best_entity_idx]) * score_multiplier
             best_entity_hash_id = self.entity_hash_ids[best_entity_idx]
             best_entity_text = self.entity_embedding_store.hash_id_to_text[best_entity_hash_id]
-            seed_entity_indices.append(best_entity_idx)
-            seed_entity_texts.append(best_entity_text)
-            seed_entity_hash_ids.append(best_entity_hash_id)
-            seed_entity_scores.append(best_entity_score)
+            previous = selected.get(best_entity_idx)
+            if previous is None or best_entity_score > previous[2]:
+                selected[best_entity_idx] = (
+                    best_entity_text, best_entity_hash_id, best_entity_score
+                )
+
+        for query_entity_idx in range(len(primary_terms)):
+            add_term(query_entity_idx, 1.0)
+
+        offset = len(primary_terms)
+        added_seed_entities = []
+        for terms in expansion_groups.values():
+            group_matches = []
+            for local_index, term in enumerate(terms):
+                entity_scores = similarities[:, offset + local_index]
+                group_matches.append((term, int(np.argmax(entity_scores))))
+            new_indices = sorted({index for _, index in group_matches if index not in selected})
+            multiplier = (
+                self.config.alias_expansion_budget / len(new_indices) if new_indices else 0.0
+            )
+            for local_index, (term, entity_index) in enumerate(group_matches):
+                if entity_index in new_indices:
+                    add_term(offset + local_index, multiplier)
+                    added_seed_entities.append(
+                        self.entity_embedding_store.hash_id_to_text[self.entity_hash_ids[entity_index]]
+                    )
+            offset += len(terms)
+
+        seed_entity_indices = list(selected)
+        seed_entity_texts = [selected[index][0] for index in seed_entity_indices]
+        seed_entity_hash_ids = [selected[index][1] for index in seed_entity_indices]
+        seed_entity_scores = [selected[index][2] for index in seed_entity_indices]
+        self._last_alias_activation = {
+            "matched_groups": list(matched_groups),
+            "matched_surfaces": matched_groups,
+            "added_seed_entities": list(dict.fromkeys(added_seed_entities)),
+        }
         return seed_entity_indices, seed_entity_texts, seed_entity_hash_ids, seed_entity_scores
 
     def index(self, passages):
@@ -617,9 +670,10 @@ class LinearRAG:
         self.add_entity_to_passage_edges(passage_hash_id_to_entities)
         self.add_adjacent_passage_edges()
         self.augment_graph()
-        output_graphml_path = os.path.join(self.config.working_dir,self.dataset_name, "LinearRAG.graphml")
-        os.makedirs(os.path.dirname(output_graphml_path), exist_ok=True)
-        self.graph.write_graphml(output_graphml_path)
+        if self.config.save_graph_index:
+            output_graphml_path = os.path.join(self.config.working_dir,self.dataset_name, "LinearRAG.graphml")
+            os.makedirs(os.path.dirname(output_graphml_path), exist_ok=True)
+            self.graph.write_graphml(output_graphml_path)
 
     def add_adjacent_passage_edges(self):
         passage_id_to_text = self.passage_embedding_store.get_hash_id_to_text()

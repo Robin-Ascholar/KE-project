@@ -19,8 +19,12 @@ class LinearRAGConfig:
     damping: float = 0.5
     iteration_threshold: float = 0.5
     use_vectorized_retrieval: bool = False  # True for vectorized matrix computation, False for BFS iteration
+    save_graph_index: bool = True
     enable_hybrid_attribute_fallback: bool = False
     attribute_keyword_boost: float = 0.25
+    enable_entity_alias_expansion: bool = False
+    entity_alias_groups: dict[str, list[str]] = field(default_factory=dict)
+    alias_expansion_budget: float = 0.75
     attribute_query_keywords: list[str] = field(default_factory=lambda: [
         "born", "birth", "where", "when", "located", "location", "founded", "founder",
         "died", "death", "nationality", "capital", "date", "year"

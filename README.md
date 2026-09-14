@@ -202,6 +202,21 @@ python scripts/evaluate_predictions.py \
 
 评分器会计算论文定义的规范化 Contain-Acc，并让本地 LLM 按“包含参考答案关键信息、事实一致、无矛盾内容”三项规则判分。详细说明见 [docs/EXPERIMENT.md](docs/EXPERIMENT.md)。
 
+## 实体别名扩展实验
+
+本分支提供默认关闭的 query-time alias activation：问题命中 `Tom Riddle / Voldemort / You-Know-Who`、`Scabbers / Peter Pettigrew / Wormtail` 等别名后，以受控的额外权重激活同组实体节点，无需重建 embedding、NER 或图索引。
+
+固定划分的初步检索实验中，开发集触发题的 Contain@20 从 34.38% 提升至 37.50%（新增 1、丢失 0）；测试划分触发题从 25.60% 提升至 28.80%（新增 5、丢失 1）。这是值得继续验证的小幅正向结果，尚不能视为正式结论。实现限制、案例分析和复现命令见 [docs/ALIAS_EXPANSION_PRELIMINARY_RESULTS.md](docs/ALIAS_EXPANSION_PRELIMINARY_RESULTS.md)。
+
+```bash
+conda activate linearrag
+python scripts/run_alias_expansion_experiment.py \
+  --split dev \
+  --seed 20260913 \
+  --alias-expansion-budget 0.75 \
+  --retrieval-top-k 20
+```
+
 ## 与论文官方实验的差异
 
 当前实验验证了 LinearRAG 在七本小说上的完整流程，但不是论文四个官方 benchmark 的严格指标复现。官方发布的多跳数据通常采用约 1,000-token passage 和 100-token overlap，并使用 Top-5 与 GPT-4o-mini；本项目采用不跨章节的 300-token passage、2 句重叠、Top-20 与本地 `qwen2.5:7b`。这些差异应在实验报告中明确说明。
