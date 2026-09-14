@@ -31,8 +31,10 @@ dataset/*
 dataset/harrypotter/*
 !dataset/harrypotter/book*.json
 !dataset/harrypotter/questions.example.json
-!dataset/harrypotter/retrieval_checks.example.json
 
 # New LinearRAG indexes and outputs are ignored by default; current harrypotter snapshot is tracked explicitly
 import/
 results/
+
+# Local task assignment notes; keep out of the remote branch
+不需要上传/

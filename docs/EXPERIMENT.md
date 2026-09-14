@@ -104,6 +104,7 @@ import/harrypotter/
 | `passage_embedding.parquet` | passage embedding |
 | `sentence_embedding.parquet` | sentence embedding |
 | `entity_embedding.parquet` | entity embedding |
+| `chapter_embedding.parquet` | 章节级 embedding，创新 3 的 coarse retrieval 索引 |
 
 当前规模：
 
@@ -116,6 +117,24 @@ sentence records: 53,580
 ```
 
 GraphML 中保存 passage/entity 图；sentence 记录用于实体激活阶段的 mention 矩阵和向量检索。
+
+## 创新 3：章节粗到细检索分析
+
+本项目在原始 passage/entity/sentence 检索之前增加章节级 coarse retrieval。系统首先将 6,865 个 passage 按 `Book N | Chapter M: title` 归属到 199 个章节，对每章 passage embedding 求均值形成章节向量；问题到达时先从章节向量中选取 Top-K 章节，再在这些章节的 passage 中运行原有 Dense、Entity 和 PPR fine retrieval。同时保留少量全局 Dense fallback，避免章节初筛错误造成完全漏召回。
+
+这一设计的核心假设是：长篇小说中的问题通常具有较强的章节局部性，章节级筛选可以减少无关 passage 进入细粒度检索和问答上下文。实验需要同时观察答案质量、Evidence Recall、Context Precision、候选 passage 数量和运行时间，不能只看最终答案准确率。
+
+详细方法、参数解释、七册 1,000 题实验命令、基线对照、消融实验和输出文件说明见 [docs/CHAPTER_RETRIEVAL.md](CHAPTER_RETRIEVAL.md)。
+
+推荐实验至少包含：
+
+| 实验 | 章节检索 | `chapter_top_k` | `chapter_global_fallback` |
+|---|---|---:|---:|
+| 原始基线 | 关闭 | - | - |
+| 创新 3 | 开启 | 8 | 2 |
+| 消融实验 | 开启 | 4 或 16 | 0 或 4 |
+
+所有实验应使用不同的输出目录，并固定问题集、问答模型、`retrieval_top_k`、embedding 模型、并发数和评测模型。
 
 ## 端到端运行参数
 

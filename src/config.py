@@ -19,6 +19,9 @@ class LinearRAGConfig:
     damping: float = 0.5
     iteration_threshold: float = 0.5
     use_vectorized_retrieval: bool = False  # True for vectorized matrix computation, False for BFS iteration
+    enable_chapter_retrieval: bool = False
+    chapter_top_k: int = 8
+    chapter_global_fallback: int = 2
     enable_hybrid_attribute_fallback: bool = False
     attribute_keyword_boost: float = 0.25
     attribute_query_keywords: list[str] = field(default_factory=lambda: [

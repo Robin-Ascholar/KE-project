@@ -16,15 +16,19 @@ from src.LinearRAG import LinearRAG  # noqa: E402
 from src.config import LinearRAGConfig  # noqa: E402
 
 
-DEFAULT_CHECKS = PROJECT_ROOT / "dataset" / "harrypotter" / "retrieval_checks.example.json"
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset-name", default="harrypotter")
-    parser.add_argument("--checks", type=Path, default=DEFAULT_CHECKS)
+    parser.add_argument(
+        "--checks",
+        type=Path,
+        help="Optional JSON retrieval check file. Omit to run indexing without checks.",
+    )
     parser.add_argument("--max-workers", type=int, default=4)
     parser.add_argument("--top-k", type=int, default=8)
+    parser.add_argument("--enable-chapter-retrieval", action="store_true")
+    parser.add_argument("--chapter-top-k", type=int, default=8)
+    parser.add_argument("--chapter-global-fallback", type=int, default=2)
     return parser.parse_args()
 
 
@@ -36,7 +40,6 @@ def main() -> None:
         raise FileNotFoundError(f"Run scripts/prepare_harry_potter.py first: {chunks_path}")
 
     chunks = json.loads(chunks_path.read_text(encoding="utf-8"))
-    checks = json.loads(args.checks.read_text(encoding="utf-8"))
     passages = [f"{index}:{chunk}" for index, chunk in enumerate(chunks)]
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -55,10 +58,22 @@ def main() -> None:
         iteration_threshold=0.4,
         passage_ratio=2.0,
         top_k_sentence=3,
+        enable_chapter_retrieval=args.enable_chapter_retrieval,
+        chapter_top_k=args.chapter_top_k,
+        chapter_global_fallback=args.chapter_global_fallback,
     )
     rag = LinearRAG(global_config=config)
     rag.index(passages)
 
+    if args.checks is None:
+        print("Retrieval checks: skipped (no --checks file provided)")
+        print(f"Graph: vertices={rag.graph.vcount()} edges={rag.graph.ecount()}")
+        return
+
+    if not args.checks.is_file():
+        raise FileNotFoundError(f"Retrieval check file does not exist: {args.checks}")
+
+    checks = json.loads(args.checks.read_text(encoding="utf-8"))
     questions = [
         {"question": check["question"], "answer": ", ".join(check["expected_terms"])}
         for check in checks
