@@ -12,6 +12,7 @@
 - `all-mpnet-base-v2` passage、sentence、entity 向量已生成
 - LinearRAG 图已生成：11,566 个节点、63,517 条边
 - 七册端到端问答已完成第一次完整实验：`dataset/question` 七个 `bookN.json` 问题集共 1,000 道题，问答模型 `qwen2.5:7b`，人工语义评测正确率 49.2%（492/1,000）
+- 实体别名创新点已完成保守激活对照：冻结测试集触发题 Contain@20 从 25.40% 升至 28.57%，详见 [实验记录](docs/CONSERVATIVE_ALIAS_ACTIVATION_RESULTS.md)
 - 人工语义评测的逐题判定、错误模式与代表性示例见 [error_analysis/2026-09-08_qwen2.5-7b_full-1000_manual_review.md](error_analysis/2026-09-08_qwen2.5-7b_full-1000_manual_review.md)
 - 当前环境已在 NVIDIA GeForce RTX 3090、PyTorch 2.1.2+cu121 上验证
 

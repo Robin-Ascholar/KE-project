@@ -8,6 +8,7 @@ import math
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from src.ner import SpacyNER
+from src.entity_alias import EntityAliasResolver, normalize_entity_name
 import igraph as ig
 import re
 import logging
@@ -31,13 +32,29 @@ class LinearRAG:
         self.load_embedding_store()
         self.llm_model = self.config.llm_model
         self.spacy_ner = SpacyNER(self.config.spacy_model)
+        alias_path = self.config.entity_alias_path
+        if alias_path is None:
+            alias_path = os.path.join("dataset", self.dataset_name, "entity_aliases.json")
+        if not os.path.isabs(alias_path):
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            project_alias_path = os.path.join(project_root, alias_path)
+            if os.path.exists(project_alias_path):
+                alias_path = project_alias_path
+        self.entity_alias_resolver = EntityAliasResolver(
+            alias_path,
+            enabled=self.config.enable_alias_activation,
+            expansion_budget=self.config.alias_expansion_budget,
+            max_expansions=self.config.max_alias_expansions,
+        )
         self.graph = ig.Graph(directed=False)
 
     def load_embedding_store(self):
         self.passage_embedding_store = EmbeddingStore(self.config.embedding_model, db_filename=os.path.join(self.config.working_dir,self.dataset_name, "passage_embedding.parquet"), batch_size=self.config.batch_size, namespace="passage")
         self.entity_embedding_store = EmbeddingStore(self.config.embedding_model, db_filename=os.path.join(self.config.working_dir,self.dataset_name, "entity_embedding.parquet"), batch_size=self.config.batch_size, namespace="entity")
         self.sentence_embedding_store = EmbeddingStore(self.config.embedding_model, db_filename=os.path.join(self.config.working_dir,self.dataset_name, "sentence_embedding.parquet"), batch_size=self.config.batch_size, namespace="sentence")
-        self.chapter_embedding_store = EmbeddingStore(self.config.embedding_model, db_filename=os.path.join(self.config.working_dir,self.dataset_name, "chapter_embedding.parquet"), batch_size=self.config.batch_size, namespace="chapter")
+        self.chapter_embedding_store = None
+        if self.config.enable_chapter_retrieval:
+            self.chapter_embedding_store = EmbeddingStore(self.config.embedding_model, db_filename=os.path.join(self.config.working_dir,self.dataset_name, "chapter_embedding.parquet"), batch_size=self.config.batch_size, namespace="chapter")
 
     def _load_chapter_metadata(self, passages):
         pattern = re.compile(r"^(?:\d+:\s*)?Book\s+(\d+)\s+\|\s+Chapter\s+(\d+):\s*([^\n]*)", re.IGNORECASE)
@@ -58,6 +75,8 @@ class LinearRAG:
         self.chapter_texts = chapter_texts
 
     def _build_chapter_index(self):
+        if self.chapter_embedding_store is None:
+            raise RuntimeError("Chapter embedding store is unavailable")
         chapter_vectors = []
         for key in self.chapter_keys:
             indices = [i for i, value in self.passage_to_chapter.items() if value == key]
@@ -204,6 +223,8 @@ class LinearRAG:
             }
             if chapter_info:
                 result.update(chapter_info)
+            if self.last_alias_expansions:
+                result["alias_expansions"] = self.last_alias_expansions
             for annotation_key in ("reasoning_path", "supporting_facts", "gold_evidence", "evidence"):
                 if annotation_key in question_info:
                     result[annotation_key] = question_info[annotation_key]
@@ -621,25 +642,84 @@ class LinearRAG:
         return overlap
 
     def get_seed_entities(self, question):
-        question_entities = list(self.spacy_ner.question_ner(question))
+        self.last_alias_expansions = []
+        question_entities = set(self.spacy_ner.question_ner(question))
+        question_entities.update(self.entity_alias_resolver.find_mentions(question))
+        # Resolve longer, more specific mentions first.  NER and lexical alias
+        # matching may both return mentions from the same logical entity group;
+        # processing the group once prevents duplicate activation mass.
+        question_entities = sorted(
+            question_entities,
+            key=lambda value: (
+                -len(normalize_entity_name(value).split()),
+                -len(normalize_entity_name(value)),
+                normalize_entity_name(value),
+            ),
+        )
         if len(question_entities) == 0:
             return [],[],[],[]
-        question_entity_embeddings = self.config.embedding_model.encode(question_entities,normalize_embeddings=True,show_progress_bar=False,batch_size=self.config.batch_size)
-        similarities = np.dot(self.entity_embeddings, question_entity_embeddings.T)
-        seed_entity_indices = []
-        seed_entity_texts = []
-        seed_entity_hash_ids = []
-        seed_entity_scores = []
-        for query_entity_idx in range(len(question_entities)):
-            entity_scores = similarities[:, query_entity_idx]
-            best_entity_idx = np.argmax(entity_scores)
-            best_entity_score = entity_scores[best_entity_idx]
-            best_entity_hash_id = self.entity_hash_ids[best_entity_idx]
-            best_entity_text = self.entity_embedding_store.hash_id_to_text[best_entity_hash_id]
-            seed_entity_indices.append(best_entity_idx)
-            seed_entity_texts.append(best_entity_text)
-            seed_entity_hash_ids.append(best_entity_hash_id)
-            seed_entity_scores.append(best_entity_score)
+        available_entities = self.entity_embedding_store.texts
+        seed_entity_text_by_hash_id = {}
+        seed_entity_index_by_hash_id = {}
+        seed_entity_score_by_hash_id = {}
+
+        unresolved_entities = []
+        alias_summary_by_id = {}
+        processed_alias_ids = set()
+        for question_entity in question_entities:
+            alias_entity = self.entity_alias_resolver.entity_for(question_entity)
+            if alias_entity is not None and alias_entity.entity_id in processed_alias_ids:
+                continue
+            alias_candidates = self.entity_alias_resolver.candidate_names(
+                question_entity,
+                available_entities,
+            )
+            if alias_candidates:
+                summary = self.entity_alias_resolver.expansion_summary(
+                    question_entity,
+                    available_entities,
+                )
+                if summary:
+                    alias_summary_by_id[summary["canonical_entity_id"]] = summary
+                    processed_alias_ids.add(summary["canonical_entity_id"])
+                for entity_text, entity_score in alias_candidates:
+                    entity_hash_id = self.entity_embedding_store.text_to_hash_id.get(entity_text)
+                    if entity_hash_id is None:
+                        continue
+                    entity_idx = self.entity_embedding_store.hash_id_to_idx[entity_hash_id]
+                    previous_score = seed_entity_score_by_hash_id.get(entity_hash_id, -1.0)
+                    if entity_score > previous_score:
+                        seed_entity_index_by_hash_id[entity_hash_id] = entity_idx
+                        seed_entity_text_by_hash_id[entity_hash_id] = entity_text
+                        seed_entity_score_by_hash_id[entity_hash_id] = entity_score
+                continue
+            unresolved_entities.append(question_entity)
+
+        if unresolved_entities:
+            question_entity_embeddings = self.config.embedding_model.encode(
+                unresolved_entities,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+                batch_size=self.config.batch_size,
+            )
+            similarities = np.dot(self.entity_embeddings, question_entity_embeddings.T)
+            for question_entity_idx, question_entity in enumerate(unresolved_entities):
+                entity_scores = similarities[:, question_entity_idx]
+                best_entity_idx = np.argmax(entity_scores)
+                best_entity_score = entity_scores[best_entity_idx]
+                best_entity_hash_id = self.entity_hash_ids[best_entity_idx]
+                best_entity_text = self.entity_embedding_store.hash_id_to_text[best_entity_hash_id]
+                previous_score = seed_entity_score_by_hash_id.get(best_entity_hash_id, -1.0)
+                if best_entity_score > previous_score:
+                    seed_entity_index_by_hash_id[best_entity_hash_id] = best_entity_idx
+                    seed_entity_text_by_hash_id[best_entity_hash_id] = best_entity_text
+                    seed_entity_score_by_hash_id[best_entity_hash_id] = best_entity_score
+
+        self.last_alias_expansions = list(alias_summary_by_id.values())
+        seed_entity_hash_ids = list(seed_entity_score_by_hash_id.keys())
+        seed_entity_indices = [seed_entity_index_by_hash_id[h] for h in seed_entity_hash_ids]
+        seed_entity_texts = [seed_entity_text_by_hash_id[h] for h in seed_entity_hash_ids]
+        seed_entity_scores = [seed_entity_score_by_hash_id[h] for h in seed_entity_hash_ids]
         return seed_entity_indices, seed_entity_texts, seed_entity_hash_ids, seed_entity_scores
 
     def index(self, passages):
@@ -647,8 +727,8 @@ class LinearRAG:
         self.entity_to_sentence_stats = defaultdict(dict)
         self.passage_embedding_store.insert_text(passages)
         self.passage_embeddings = np.asarray(self.passage_embedding_store.embeddings)
-        self._load_chapter_metadata(passages)
         if self.config.enable_chapter_retrieval:
+            self._load_chapter_metadata(passages)
             self._build_chapter_index()
         hash_id_to_passage = self.passage_embedding_store.get_hash_id_to_text()
         existing_passage_hash_id_to_entities,existing_sentence_to_entities, new_passage_hash_ids = self.load_existing_data(hash_id_to_passage.keys())
@@ -671,9 +751,10 @@ class LinearRAG:
         self.add_entity_to_passage_edges(passage_hash_id_to_entities)
         self.add_adjacent_passage_edges()
         self.augment_graph()
-        output_graphml_path = os.path.join(self.config.working_dir,self.dataset_name, "LinearRAG.graphml")
-        os.makedirs(os.path.dirname(output_graphml_path), exist_ok=True)
-        self.graph.write_graphml(output_graphml_path)
+        if self.config.save_graph_index:
+            output_graphml_path = os.path.join(self.config.working_dir,self.dataset_name, "LinearRAG.graphml")
+            os.makedirs(os.path.dirname(output_graphml_path), exist_ok=True)
+            self.graph.write_graphml(output_graphml_path)
 
     def _chapter_candidates(self, question_embedding):
         scores = np.dot(self.chapter_embeddings, np.asarray(question_embedding).reshape(-1, 1)).flatten()

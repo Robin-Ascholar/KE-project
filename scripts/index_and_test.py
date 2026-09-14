@@ -29,11 +29,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--enable-chapter-retrieval", action="store_true")
     parser.add_argument("--chapter-top-k", type=int, default=8)
     parser.add_argument("--chapter-global-fallback", type=int, default=2)
+    parser.add_argument("--entity-alias-path", type=Path, help="Optional entity alias JSON path")
+    parser.add_argument("--disable-alias-activation", action="store_true", help="Disable query-time entity alias expansion")
+    parser.add_argument("--alias-expansion-budget", type=float, default=0.75, help="Total score shared by expanded aliases in one entity group")
+    parser.add_argument("--max-alias-expansions", type=int, default=8, help="Maximum expanded surface forms per logical entity")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    if not 0.0 <= args.alias_expansion_budget <= 1.0:
+        raise ValueError("--alias-expansion-budget must be in [0, 1]")
+    if args.max_alias_expansions < 0:
+        raise ValueError("--max-alias-expansions must be non-negative")
+    if args.chapter_top_k < 1:
+        raise ValueError("--chapter-top-k must be positive")
+    if args.chapter_global_fallback < 0:
+        raise ValueError("--chapter-global-fallback must be non-negative")
     dataset_dir = PROJECT_ROOT / "dataset" / args.dataset_name
     chunks_path = dataset_dir / "chunks.json"
     if not chunks_path.is_file():
@@ -61,6 +73,10 @@ def main() -> None:
         enable_chapter_retrieval=args.enable_chapter_retrieval,
         chapter_top_k=args.chapter_top_k,
         chapter_global_fallback=args.chapter_global_fallback,
+        entity_alias_path=str(args.entity_alias_path) if args.entity_alias_path else None,
+        enable_alias_activation=not args.disable_alias_activation,
+        alias_expansion_budget=args.alias_expansion_budget,
+        max_alias_expansions=args.max_alias_expansions,
     )
     rag = LinearRAG(global_config=config)
     rag.index(passages)
