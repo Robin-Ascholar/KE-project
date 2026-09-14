@@ -649,7 +649,7 @@
                     <div class="kg-toolbar">
                         <div>
                             <strong>查询局部图谱</strong>
-                            <span>${stats.entities || nodes.filter((n) => n.type === 'entity').length} 个实体 · ${stats.passages || passages.length} 个段落 · ${stats.relations || validEdges.length} 条关系</span>
+                            <span>${stats.entities || nodes.filter((n) => n.type === 'entity').length} 个实体 · ${stats.seed_entities || nodes.filter((n) => n.is_seed).length} 个查询种子 · ${stats.relations || validEdges.length} 条关系</span>
                         </div>
                         <div class="kg-actions">
                             <button type="button" data-graph-action="zoom-out" title="缩小" aria-label="缩小"><i data-lucide="minus"></i></button>
@@ -667,15 +667,16 @@
                                     ${validEdges.map((edge, index) => {
                                         const a = nodeMap.get(edge.source);
                                         const b = nodeMap.get(edge.target);
-                                        return `<line data-edge-index="${index}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"></line>`;
+                                        return `<line class="${edge.label === 'co-occurs' ? 'is-cooccurrence' : 'is-mention'}" data-edge-index="${index}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"></line>`;
                                     }).join('')}
                                 </g>
                                 <g class="kg-nodes">
-                                    ${layoutNodes.map((node) => {
-                                        const nodeClass = node.type === 'passage' ? 'is-passage' : node.is_seed ? 'is-seed' : 'is-entity';
+                                    ${layoutNodes.map((node, nodeIndex) => {
+                                        const labelClass = node.type === 'passage' || node.is_seed || nodeIndex < 24 ? ' is-label-visible' : '';
+                                        const nodeClass = (node.type === 'passage' ? 'is-passage' : node.is_seed ? 'is-seed' : node.is_direct ? 'is-entity is-direct' : 'is-entity is-expanded') + labelClass;
                                         const radius = node.type === 'passage' ? 15 : node.is_seed ? 12 : 9;
                                         const label = this.truncateLabel(node.label, node.type === 'passage' ? 22 : 18);
-                                        const nodeDetail = node.type === 'passage' ? (node.chapter_title || '检索证据段落') : `${node.is_seed ? '问题实体' : '相关实体'} · 连接 ${Number(node.degree) || 0} 个检索段落`;
+                                        const nodeDetail = node.type === 'passage' ? (node.chapter_title || '检索证据段落') : `${node.is_seed ? '查询种子实体' : node.is_direct ? '直接相关实体' : '扩展共现实体'} · 连接 ${Number(node.degree) || 0} 个节点`;
                                         return `<g class="kg-node ${nodeClass}" data-node-id="${this.escapeHtml(node.id)}" transform="translate(${node.x.toFixed(1)} ${node.y.toFixed(1)})" tabindex="0" role="button" aria-label="${this.escapeHtml(node.label)}" data-node-label="${this.escapeHtml(node.label)}" data-node-detail="${this.escapeHtml(nodeDetail)}" onclick="document.getElementById('kgInspector').textContent=this.dataset.nodeLabel+' · '+this.dataset.nodeDetail">
                                             <circle r="${radius}"></circle>
                                             <text y="${radius + 16}" text-anchor="middle">${this.escapeHtml(label)}</text>
@@ -687,7 +688,7 @@
                         <div class="kg-hint">滚轮缩放 · 拖动画布 · 拖拽节点 · 点击查看详情</div>
                     </div>
                     <div class="kg-footer">
-                        <div class="kg-legend"><span><i class="seed"></i>问题实体</span><span><i class="entity"></i>相关实体</span><span><i class="passage"></i>检索段落</span><span><b></b>实体出现在段落中</span></div>
+                        <div class="kg-legend"><span><i class="seed"></i>查询种子实体</span><span><i class="entity"></i>相关实体</span><span><i class="passage"></i>检索段落</span><span><b></b>出现 / 共现关系</span></div>
                         <div class="kg-inspector" id="kgInspector">点击节点查看内容</div>
                     </div>
                 </div>
@@ -797,7 +798,7 @@
             if (node.type === 'passage') {
                 inspector.innerHTML = `<strong>${this.escapeHtml(node.label)}</strong><span>${this.escapeHtml(node.chapter_title || '')}</span><p>${this.escapeHtml(this.truncateLabel(node.passage || '', 260))}</p>`;
             } else {
-                inspector.innerHTML = `<strong>${this.escapeHtml(node.label)}</strong><span>${node.is_seed ? '问题实体' : '相关实体'} · 连接 ${Number(node.degree) || 0} 个检索段落</span>`;
+                inspector.innerHTML = `<strong>${this.escapeHtml(node.label)}</strong><span>${node.is_seed ? '查询种子实体' : node.is_direct ? '直接相关实体' : '扩展共现实体'} · 连接 ${Number(node.degree) || 0} 个节点</span>`;
             }
         }
 

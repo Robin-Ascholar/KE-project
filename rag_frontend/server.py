@@ -255,10 +255,10 @@ def _graph_payload(
     runtime: dict[str, Any],
     result: dict[str, Any],
     question: str,
-    max_passages: int = 6,
-    max_entities: int = 28,
+    max_passages: int = 8,
+    max_entities: int = 120,
 ) -> dict[str, Any]:
-    """Build a compact, query-local subgraph from the real LinearRAG graph."""
+    """Build a query-local graph with real mentions and one-hop co-occurrences."""
     rag = runtime["rag"]
     graph = rag.graph
     passage_rows: list[tuple[str, str, float, int]] = []
@@ -270,6 +270,13 @@ def _graph_payload(
             continue
         score = float(scores[rank - 1]) if rank - 1 < len(scores) else 0.0
         passage_rows.append((passage_id, passage, score, rank))
+
+    seed_ids: set[str] = set()
+    try:
+        _, _seed_texts, seed_hash_ids, _seed_scores = rag.get_seed_entities(question)
+        seed_ids.update(seed_hash_ids)
+    except Exception:
+        logger.debug("Could not recompute graph seed entities", exc_info=True)
 
     candidates: dict[str, dict[str, Any]] = {}
     mentions: list[tuple[str, str, float]] = []
@@ -287,16 +294,68 @@ def _graph_payload(
                 "label": str(vertex["content"]),
                 "score": 0.0,
                 "degree": 0,
+                "is_direct": True,
             })
             item["score"] += max(passage_score, 0.000001) * max(edge_weight, 0.000001)
             item["degree"] += 1
+            item["is_direct"] = True
             mentions.append((entity_id, passage_id, edge_weight))
+
+    # Expand through passages shared with the strongest directly retrieved entities.
+    # These links are marked as co-occurrence instead of being presented as authored relations.
+    direct_ids = list(candidates)
+    cooccurrences: dict[tuple[str, str], int] = {}
+    for anchor_id in direct_ids:
+        if len(candidates) >= max_entities * 2:
+            break
+        anchor_index = rag.node_name_to_vertex_idx.get(anchor_id)
+        if anchor_index is None:
+            continue
+        context_passages = [
+            index for index in graph.neighbors(anchor_index)
+            if str(graph.vs[index]["name"]).startswith("passage-")
+        ][:4]
+        for context_index in context_passages:
+            for neighbor_index in graph.neighbors(context_index):
+                entity_id = graph.vs[neighbor_index]["name"]
+                if not str(entity_id).startswith("entity-") or entity_id == anchor_id:
+                    continue
+                item = candidates.setdefault(entity_id, {
+                    "id": entity_id,
+                    "label": str(graph.vs[neighbor_index]["content"]),
+                    "score": candidates[anchor_id]["score"] * 0.25,
+                    "degree": 1,
+                    "is_direct": False,
+                })
+                if not item.get("is_direct"):
+                    item["degree"] += 1
+                pair = tuple(sorted((anchor_id, entity_id)))
+                cooccurrences[pair] = cooccurrences.get(pair, 0) + 1
+                if len(candidates) >= max_entities * 2:
+                    break
+            if len(candidates) >= max_entities * 2:
+                break
+
+    # Keep detected query entities visible even when they are not attached to a top passage.
+    for seed_id in seed_ids:
+        if seed_id not in rag.node_name_to_vertex_idx:
+            continue
+        vertex = graph.vs[rag.node_name_to_vertex_idx[seed_id]]
+        candidates.setdefault(seed_id, {
+            "id": seed_id,
+            "label": str(vertex["content"]),
+            "score": 1.0,
+            "degree": 0,
+            "is_direct": True,
+        })
 
     question_lower = question.casefold()
     ranked_entities = sorted(
         candidates.values(),
         key=lambda item: (
+            item["id"] in seed_ids,
             item["label"].casefold() in question_lower,
+            item.get("is_direct", False),
             item["degree"],
             item["score"],
         ),
@@ -309,7 +368,7 @@ def _graph_payload(
         nodes.append({
             **item,
             "type": "entity",
-            "is_seed": item["label"].casefold() in question_lower,
+            "is_seed": item["id"] in seed_ids or item["label"].casefold() in question_lower,
         })
 
     for passage_id, passage, score, rank in passage_rows:
@@ -324,26 +383,56 @@ def _graph_payload(
                 "chapter": int(match.group(2)),
                 "chapter_title": match.group(3).strip(),
             })
-        nodes.append({
-            "id": passage_id,
-            "label": label,
-            "type": "passage",
-            **metadata,
-        })
+        nodes.append({"id": passage_id, "label": label, "type": "passage", **metadata})
 
     edges = [
         {"source": entity_id, "target": passage_id, "label": "appears in", "weight": weight}
         for entity_id, passage_id, weight in mentions
         if entity_id in selected_entities
     ]
+    remaining_edge_budget = max(0, 260 - len(edges))
+    cooccurrence_edges = [
+        (pair, weight)
+        for pair, weight in sorted(cooccurrences.items(), key=lambda item: item[1], reverse=True)
+        if pair[0] in selected_entities and pair[1] in selected_entities
+    ]
+    covered_entities = {edge["source"] for edge in edges if edge["source"] in selected_entities}
+    added_pairs: set[tuple[str, str]] = set()
+
+    # First give every expanded entity a visible connection, then use the rest
+    # of the budget for the strongest repeated co-occurrences.
+    for (source, target), weight in cooccurrence_edges:
+        if remaining_edge_budget <= 0:
+            break
+        if source in covered_entities and target in covered_entities:
+            continue
+        edges.append({"source": source, "target": target, "label": "co-occurs", "weight": weight})
+        added_pairs.add((source, target))
+        covered_entities.update((source, target))
+        remaining_edge_budget -= 1
+    for (source, target), weight in cooccurrence_edges:
+        if remaining_edge_budget <= 0:
+            break
+        if (source, target) in added_pairs:
+            continue
+        edges.append({"source": source, "target": target, "label": "co-occurs", "weight": weight})
+        remaining_edge_budget -= 1
+
     return {
         "nodes": nodes,
         "edges": edges,
-        "legend": {"seed": "问题实体", "entity": "相关实体", "passage": "检索段落"},
+        "legend": {
+            "seed": "查询种子实体",
+            "entity": "相关实体",
+            "passage": "检索段落",
+            "mention": "实体出现在段落中",
+            "cooccurrence": "实体在其他段落中共现",
+        },
         "stats": {
             "entities": len(ranked_entities),
             "passages": len(passage_rows),
             "relations": len(edges),
+            "seed_entities": sum(bool(node.get("is_seed")) for node in nodes),
         },
     }
 

@@ -2793,3 +2793,52 @@ svg {
         display: none;
     }
 }
+
+/* Dense graph and stronger query-entity emphasis */
+.kg-node text {
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+
+.kg-node.is-label-visible text,
+.kg-node:hover text,
+.kg-node.is-selected text {
+    opacity: 1;
+}
+
+.kg-node.is-expanded circle {
+    fill: #309dba;
+    opacity: 0.82;
+}
+
+.kg-node.is-seed circle {
+    r: 15px;
+    fill: #ff365d;
+    stroke: #fff3a6;
+    stroke-width: 3.5;
+    filter: url(#kgGlow);
+    animation: kg-seed-pulse 1.9s ease-in-out infinite;
+}
+
+.kg-node.is-seed text {
+    fill: #fff6b7;
+    font-size: 12px;
+    font-weight: 800;
+    stroke: #3b1023;
+    stroke-width: 4px;
+}
+
+.kg-edges line.is-cooccurrence {
+    stroke: rgba(118, 190, 219, 0.25);
+    stroke-dasharray: 3 4;
+}
+
+.kg-edges line.is-mention {
+    stroke: rgba(241, 210, 103, 0.48);
+    stroke-width: 1.35;
+}
+
+@keyframes kg-seed-pulse {
+    0%, 100% { stroke-opacity: 0.88; }
+    50% { stroke-opacity: 1; stroke-width: 5; }
+}
