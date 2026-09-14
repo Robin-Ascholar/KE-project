@@ -1,0 +1,48 @@
+{
+  "metric_definition": "Human semantic review of qwen2.5:7b answers (replaces the automated LLM judge which was partial/unreliable). A question counts correct when the model answer is semantically consistent with the reference answer.",
+  "predictions": "/home/lizhaoxuan/KE-project/results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/combined_predictions.json",
+  "scored_predictions": "/home/lizhaoxuan/KE-project/results/harrypotter/batch_2026-09-07_qwen2.5-7b_full-1000/combined_predictions.scored.json",
+  "sample_count": 1000,
+  "review_date_utc": "2026-09-07T16:36:11.995423+00:00",
+  "reviewer": "human manual semantic review (per-question C/W, no evaluation script)",
+  "manual_semantic_accuracy": 0.492,
+  "correct": 492,
+  "wrong": 508,
+  "per_book": {
+    "book1": {
+      "correct": 77,
+      "total": 143,
+      "accuracy": 0.5385
+    },
+    "book2": {
+      "correct": 72,
+      "total": 143,
+      "accuracy": 0.5035
+    },
+    "book3": {
+      "correct": 85,
+      "total": 143,
+      "accuracy": 0.5944
+    },
+    "book4": {
+      "correct": 72,
+      "total": 143,
+      "accuracy": 0.5035
+    },
+    "book5": {
+      "correct": 84,
+      "total": 143,
+      "accuracy": 0.5874
+    },
+    "book6": {
+      "correct": 53,
+      "total": 143,
+      "accuracy": 0.3706
+    },
+    "book7": {
+      "correct": 49,
+      "total": 142,
+      "accuracy": 0.3451
+    }
+  }
+}
