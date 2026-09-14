@@ -1,206 +1,128 @@
 [
   {
-    "method": "Closed-book",
-    "method_id": "closed_book",
+    "method": "closed_book",
+    "model": "qwen2.5:0.5b",
+    "dense_backend": null,
     "question_count": 1000,
+    "top_k_native": null,
+    "chunk_token_size": null,
     "answer_accuracy": 0.032,
-    "answer_accuracy_correct": 32,
     "answer_accuracy_source": "lenient_manual_semantic_review",
     "automatic_answer_accuracy": 0.009,
     "contain_accuracy": 0.022,
-    "evidence_recall_at_5": null,
-    "evidence_precision_at_5": null,
-    "llm_rag_judge_evidence_recall": null,
-    "retrieval_hit_at_5": null,
-    "retrieval_mrr_at_5": null,
-    "retrieval_ndcg_at_5": null,
-    "retrieval_f1_at_5": null,
-    "context_relevance": null,
-    "context_precision": null,
-    "answer_fact_coverage": null,
-    "answer_faithfulness": null,
-    "exact_match": 0.003,
-    "token_f1": 0.04729639976620908,
-    "rouge_l_f1": 0.04552885968539348,
-    "semantic_similarity": null,
+    "answer_exact_match": 0.003,
+    "answer_token_f1": 0.04729639976620908,
+    "answer_rouge_l_f1": 0.04552885968539349,
+    "evidence_annotation_source": "auto_lexical_candidate_unused",
+    "evidence_recall_evaluable_count": 0,
     "retrieval_latency_ms_avg": 0.0,
     "retrieval_latency_ms_p50": 0.0,
     "retrieval_latency_ms_p95": 0.0,
     "total_latency_ms_avg": 111.44387562200245,
     "total_latency_ms_p50": 93.4729470000093,
     "total_latency_ms_p95": 281.1647536502731,
-    "generator": "qwen2.5:0.5b",
-    "embedding": null,
-    "dense_backend": null,
-    "top_k": null,
-    "retrieval_top_k": 5,
-    "notes": "No retrieval context; retrieval metrics are not applicable.",
-    "source": "95ae490:results/task4_formal/closed_book + manual_review_summary.json",
-    "by_book": {
-      "book1": [
-        6,
-        143
-      ],
-      "book2": [
-        6,
-        143
-      ],
-      "book3": [
-        7,
-        143
-      ],
-      "book4": [
-        2,
-        143
-      ],
-      "book5": [
-        5,
-        143
-      ],
-      "book6": [
-        2,
-        143
-      ],
-      "book7": [
-        4,
-        142
-      ]
-    }
+    "retrieval_recall_at_5": null,
+    "retrieval_precision_at_5": null,
+    "retrieval_hit_at_5": null,
+    "retrieval_mrr_at_5": null,
+    "retrieval_ndcg_at_5": null,
+    "retrieval_f1_at_5": null,
+    "retrieval_recall_at_8": null,
+    "retrieval_precision_at_8": null,
+    "retrieval_hit_at_8": null,
+    "retrieval_mrr_at_8": null,
+    "retrieval_ndcg_at_8": null,
+    "retrieval_f1_at_8": null,
+    "task4_gold_evidence_note": "gold_evidence is auto_lexical_candidate and requires manual audit; it is not a human final annotation"
   },
   {
-    "method": "Dense RAG",
-    "method_id": "dense_rag",
+    "method": "dense_rag",
+    "model": "qwen2.5:0.5b",
+    "dense_backend": "sentence_transformer",
     "question_count": 1000,
+    "top_k_native": 5,
+    "chunk_token_size": null,
     "answer_accuracy": 0.183,
-    "answer_accuracy_correct": 183,
     "answer_accuracy_source": "lenient_manual_semantic_review",
     "automatic_answer_accuracy": 0.031,
     "contain_accuracy": 0.128,
-    "evidence_recall_at_5": 0.11933333333333299,
-    "evidence_precision_at_5": 0.0716,
-    "llm_rag_judge_evidence_recall": null,
-    "retrieval_hit_at_5": 0.293,
-    "retrieval_mrr_at_5": 0.18241666666666664,
-    "retrieval_ndcg_at_5": 0.2082933797087101,
-    "retrieval_f1_at_5": 0.0895,
-    "context_relevance": null,
-    "context_precision": null,
-    "answer_fact_coverage": null,
-    "answer_faithfulness": null,
-    "exact_match": 0.075,
-    "token_f1": 0.17134867748509947,
-    "rouge_l_f1": 0.1687471298859308,
-    "semantic_similarity": null,
+    "answer_exact_match": 0.075,
+    "answer_token_f1": 0.17134867748509947,
+    "answer_rouge_l_f1": 0.1687471298859308,
+    "evidence_annotation_source": "auto_lexical_candidate",
+    "evidence_recall_evaluable_count": 1000,
     "retrieval_latency_ms_avg": 43.26670132700201,
     "retrieval_latency_ms_p50": 40.46323600005053,
     "retrieval_latency_ms_p95": 60.493705200724435,
     "total_latency_ms_avg": 313.1215288910207,
     "total_latency_ms_p50": 297.52942399909443,
     "total_latency_ms_p95": 468.9858695494875,
-    "generator": "qwen2.5:0.5b",
-    "embedding": "model/all-mpnet-base-v2",
-    "dense_backend": "sentence_transformer",
-    "top_k": 5,
-    "retrieval_top_k": 5,
-    "notes": "Gold evidence is an automatically generated lexical candidate annotation.",
-    "source": "95ae490:results/task4_formal/dense_rag + manual_review_summary.json",
-    "by_book": {
-      "book1": [
-        33,
-        143
-      ],
-      "book2": [
-        31,
-        143
-      ],
-      "book3": [
-        30,
-        143
-      ],
-      "book4": [
-        25,
-        143
-      ],
-      "book5": [
-        24,
-        143
-      ],
-      "book6": [
-        19,
-        143
-      ],
-      "book7": [
-        21,
-        142
-      ]
-    }
+    "retrieval_recall_at_5": 0.11933333333333333,
+    "retrieval_precision_at_5": 0.0716,
+    "retrieval_hit_at_5": 0.293,
+    "retrieval_mrr_at_5": 0.18241666666666667,
+    "retrieval_ndcg_at_5": 0.2082933797087101,
+    "retrieval_f1_at_5": 0.0895,
+    "retrieval_recall_at_8": 0.11933333333333333,
+    "retrieval_precision_at_8": 0.0716,
+    "retrieval_hit_at_8": 0.293,
+    "retrieval_mrr_at_8": 0.18241666666666667,
+    "retrieval_ndcg_at_8": 0.2082933797087101,
+    "retrieval_f1_at_8": 0.0895,
+    "task4_gold_evidence_note": "gold_evidence is auto_lexical_candidate and requires manual audit; it is not a human final annotation"
   },
   {
-    "method": "Original LinearRAG",
-    "method_id": "original_linearrag",
+    "method": "original_linearrag",
+    "model": "qwen2.5:7b",
+    "dense_backend": "sentence_transformer",
     "question_count": 1000,
+    "top_k_native": 8,
+    "chunk_token_size": 1000,
     "answer_accuracy": 0.492,
-    "answer_accuracy_correct": 492,
-    "answer_accuracy_source": "manual_semantic_review_task3",
+    "answer_accuracy_source": "human_manual_semantic_review",
     "automatic_answer_accuracy": null,
-    "contain_accuracy": null,
-    "evidence_recall_at_5": null,
-    "evidence_precision_at_5": null,
-    "llm_rag_judge_evidence_recall": null,
-    "retrieval_hit_at_5": null,
-    "retrieval_mrr_at_5": null,
-    "retrieval_ndcg_at_5": null,
-    "retrieval_f1_at_5": null,
-    "context_relevance": null,
-    "context_precision": null,
-    "answer_fact_coverage": null,
-    "answer_faithfulness": null,
-    "exact_match": null,
-    "token_f1": null,
-    "rouge_l_f1": null,
-    "semantic_similarity": null,
+    "contain_accuracy": 0.266,
+    "answer_exact_match": 0.205,
+    "answer_token_f1": 0.3217979560731203,
+    "answer_rouge_l_f1": 0.3166754965855727,
+    "evidence_annotation_source": "auto_lexical_candidate",
+    "evidence_recall_evaluable_count": 1000,
     "retrieval_latency_ms_avg": null,
     "retrieval_latency_ms_p50": null,
     "retrieval_latency_ms_p95": null,
     "total_latency_ms_avg": null,
     "total_latency_ms_p50": null,
     "total_latency_ms_p95": null,
-    "generator": "qwen2.5:7b",
-    "embedding": "model/all-mpnet-base-v2",
-    "dense_backend": "LinearRAG vectorized graph retrieval",
-    "top_k": 20,
-    "retrieval_top_k": 20,
-    "notes": "Task3 retained the manual answer review and run configuration, but not the 1,000-row prediction/evidence/timing artifacts.",
-    "source": "task3 README.md, docs/EXPERIMENT.md, error_analysis/*",
-    "by_book": {
-      "book1": [
-        77,
-        143
-      ],
-      "book2": [
-        72,
-        143
-      ],
-      "book3": [
-        85,
-        143
-      ],
-      "book4": [
-        72,
-        143
-      ],
-      "book5": [
-        84,
-        143
-      ],
-      "book6": [
-        53,
-        143
-      ],
-      "book7": [
-        49,
-        142
-      ]
-    }
+    "retrieval_recall_at_5": 0.08166666666666667,
+    "retrieval_precision_at_5": 0.049,
+    "retrieval_hit_at_5": 0.196,
+    "retrieval_mrr_at_5": 0.11406666666666666,
+    "retrieval_ndcg_at_5": 0.1332491017124648,
+    "retrieval_f1_at_5": 0.06125,
+    "retrieval_recall_at_8": 0.12233333333333332,
+    "retrieval_precision_at_8": 0.045875,
+    "retrieval_hit_at_8": 0.275,
+    "retrieval_mrr_at_8": 0.12585833333333332,
+    "retrieval_ndcg_at_8": 0.1593837674608036,
+    "retrieval_f1_at_8": 0.06672727272727273,
+    "manual_review_correct": 492,
+    "manual_review_question_count": 1000,
+    "relaxed_local_judge_accuracy": 0.478,
+    "rag_judge_source_note": "230-row prefix only; remaining 770 rows have no RAG judge output",
+    "llm_rag_judge_evaluable_count": 230,
+    "llm_rag_context_relevance": 0.5869565217391305,
+    "llm_rag_context_precision": 0.14347826086956522,
+    "llm_rag_evidence_recall": 0.5565217391304348,
+    "llm_rag_answer_fact_coverage": 0.5521739130434783,
+    "llm_rag_answer_faithfulness": 0.7181884057971014,
+    "llm_rag_evidence_path_coverage": 0.6154347826086957,
+    "llm_rag_evidence_path_complete": 0.5434782608695652,
+    "llm_rag_retrieval_hit": 0.5956521739130435,
+    "llm_rag_retrieval_mrr": 0.34482919254658384,
+    "llm_rag_retrieval_ndcg": 0.3939354378553034,
+    "llm_rag_retrieval_f1": 0.20743005786484048,
+    "source_data_dir": "原始数据/baseline_qwen2.5-7b_full-1000",
+    "retrieval_latency_note": "Unavailable: source predictions contain no retrieval timestamps",
+    "task4_gold_evidence_note": "gold_evidence is auto_lexical_candidate and requires manual audit; it is not a human final annotation"
   }
 ]

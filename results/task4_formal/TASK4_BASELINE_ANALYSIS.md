@@ -1,38 +1,58 @@
 # Task 4：Baseline 与统一对照实验分析
 
-> 本文是基于当前仓库、task3 文档和历史正式实验产物生成的结果汇总。缺失的逐题产物不会被用其他实验推断，统一记为 `N/A`。
+> 本文基于仓库现有的 Closed-book、Dense RAG 和 Original LinearRAG 1000 题实验文件整理。它是历史实验结果汇总，不代表三个方法已经完成同模型、同 prompt、同 Top-k 的严格重跑。
 
 ## 1. 结论摘要
 
-在 1,000 道问题上，Closed-book 的人工语义正确率为 **3.20%**，Dense RAG 为 **18.30%**，Original LinearRAG 为 **49.20%**。Dense RAG 相比 Closed-book 提升 **15.10 个百分点**；Original LinearRAG 比 Dense RAG 高 **30.90 个百分点**。
+| Method | Questions | Model | Answer Accuracy | Contain-Acc | Exact Match | Token-F1 | ROUGE-L-F1 |
+|---|---:|---|---:|---:|---:|---:|---:|
+| Closed-book | 1000 | `qwen2.5:0.5b` | 3.20% | 2.20% | 0.30% | 4.73% | 4.55% |
+| Dense RAG | 1000 | `qwen2.5:0.5b` | 18.30% | 12.80% | 7.50% | 17.13% | 16.87% |
+| Original LinearRAG | 1000 | `qwen2.5:7b` | 49.20% | 26.60% | 20.50% | 32.18% | 31.67% |
 
-但三者当前历史结果**不能直接作为严格公平的最终对照结论**：Closed-book/Dense RAG 使用 `qwen2.5:0.5b`、Top-5，Original LinearRAG 使用 `qwen2.5:7b`、Top-20。模型规模和上下文数量同时变化，因此 Original LinearRAG 的优势不能全部归因于检索方法。
+在已有人工语义评测口径下，Dense RAG 比 Closed-book 高 15.10 个百分点，Original LinearRAG 比 Dense RAG 高 30.90 个百分点。但 Original LinearRAG 使用更大的生成模型，不能把全部差异归因于检索方法。
 
-## 2. 三个 Baseline 结果
+## 2. 检索指标
 
-### 2.1 核心指标
+检索指标定义为 passage ID 级别的 Top-k 结果与 gold passage ID 的重叠。当前 gold evidence 来自 `auto_lexical_candidate`，需要人工审计，不能直接视为最终人工 gold。
 
-| Method | N | Answer Accuracy | Contain-Acc | Exact Match | Token F1 | ROUGE-L F1 | Evidence Recall@5 | LLM RAG Judge Evidence Recall | Retrieval Avg (ms) | Total Avg (ms) |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Closed-book | 1000 | 3.20% | 2.20% | 0.30% | 4.73% | 4.55% | N/A | N/A | 0.00 | 111.44 |
-| Dense RAG | 1000 | 18.30% | 12.80% | 7.50% | 17.13% | 16.87% | 11.93% | N/A | 43.27 | 313.12 |
-| Original LinearRAG | 1000 | 49.20% | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| Method | Native Top-k | Recall@5 | Recall@8 | Precision@5 | Hit@5 | MRR@5 | NDCG@5 | Retrieval F1@5 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Closed-book | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| Dense RAG | 5 | 11.93% | 11.93% | 7.16% | 29.30% | 18.24% | 20.83% | 8.95% |
+| Original LinearRAG | 8 | 8.17% | 12.23% | 4.90% | 19.60% | 11.41% | 13.32% | 6.13% |
 
-说明：Exact Match、Token F1、ROUGE-L 和 Dense RAG 的 passage-id 检索指标均由历史正式预测文件逐题重算；Closed-book 没有检索过程，因此 Evidence Recall@5 和 retrieval metrics 不适用；Original LinearRAG 的历史 1,000 题逐题结果未保留，不能补算这些指标。
+Closed-book 没有检索过程，因此检索指标不适用。Original LinearRAG 的 Recall@5/8 是根据原始 1000 条预测中的 passage 前缀 ID，以及现有 1000 题自动候选证据补算得到的。
 
-### 2.2 Dense RAG 检索诊断
+## 3. Original LinearRAG 的 LLM RAG Judge
 
-| Metric | Value |
-|---|---:|
-| Evidence Precision@5 | 7.16% |
-| Hit@5 | 29.30% |
-| MRR@5 | 18.24% |
-| nDCG@5 | 20.83% |
-| Retrieval F1@5 | 8.95% |
+Original LinearRAG 的 `combined_predictions.scored.json` 只有前 230/1000 题包含 RAG judge 输出，下面的数值只代表这 230 题。它们与 passage-id Recall@k 不是同一个指标。
 
-这些值是针对自动词法候选 gold evidence 的诊断结果，不是人工确认 gold evidence 上的最终结论。
+| Metric | Value | Evaluable N |
+|---|---:|---:|
+| Context Relevance | 0.5870 | 230 |
+| Context Precision | 0.1435 | 230 |
+| LLM RAG Judge Evidence Recall | 0.5565 | 230 |
+| Answer Fact Coverage | 0.5522 | 230 |
+| Answer Faithfulness | 0.7182 | 230 |
+| Retrieval Hit | 0.5957 | 230 |
+| Retrieval MRR | 0.3448 | 230 |
+| Retrieval NDCG | 0.3939 | 230 |
+| Retrieval F1 | 0.2074 | 230 |
 
-### 2.3 分册人工答案正确率
+这里的 LLM RAG Judge Evidence Recall 表示“参考事实是否被上下文支持”；Evidence Recall@k 表示“gold passage ID 是否进入 Top-k”。两者不能混用。
+
+## 4. 延迟
+
+| Method | Retrieval Avg (ms) | Total Avg (ms) |
+|---|---:|---:|
+| Closed-book | 0.00 | 111.44 |
+| Dense RAG | 43.27 | 313.12 |
+| Original LinearRAG | N/A | N/A |
+
+Original LinearRAG 的归档预测和日志没有逐题 retrieval/total latency 字段，不能从现有文件可靠反推。Dense RAG 的检索平均耗时约占总耗时 13.8%。
+
+## 5. 分册人工答案准确率
 
 | Book | Closed-book | Dense RAG | Original LinearRAG |
 |---|---:|---:|---:|
@@ -45,92 +65,32 @@
 | book7 | 4/142 (2.8%) | 21/142 (14.8%) | 49/142 (34.5%) |
 | **Total** | **32/1000 (3.2%)** | **183/1000 (18.3%)** | **492/1000 (49.2%)** |
 
-Dense RAG 在七册上均高于 Closed-book，说明引入文本检索确实提供了有效信息。Original LinearRAG 在所有分册也高于 Dense RAG，但由于 generator 不同，不能把该差异视作纯检索增益。
+## 6. 控制变量检查
 
-## 3. 实验控制变量
-
-| Variable | Closed-book | Dense RAG | Original LinearRAG | 统一性判断 |
+| Variable | Closed-book | Dense RAG | Original LinearRAG | Status |
 |---|---|---|---|---|
-| Question set | 7 books, 1,000 questions | 同左 | 同左 | 一致 |
-| Corpus | 6,865 passages, 199 chapters | 同左 | 同左 | 一致 |
-| Chunking | 300 target / 360 max / 80 min / 2 sentence overlap | 同左 | 同左 | 一致 |
-| Generator | `qwen2.5:0.5b` | `qwen2.5:0.5b` | `qwen2.5:7b` | 不一致 |
-| Prompt | concise answer-only | context + concise answer | LinearRAG QA prompt | 不一致 |
-| Top-k | 0 context | 5 | 20 | 不一致 |
-| Embedding | 不使用 | `all-mpnet-base-v2` | `all-mpnet-base-v2` | 部分一致 |
-| Temperature | 0 | 0 | 文档未完整记录，历史 run 使用本地固定配置 | 需补记录 |
-| Chapter retrieval | 不适用 | 不适用 | 关闭，属于 Original baseline | 一致 |
+| Question set | 1000 questions | Same | Same | Consistent |
+| Generator | `qwen2.5:0.5b` | `qwen2.5:0.5b` | `qwen2.5:7b` | Not consistent |
+| Prompt | Answer-only | Context + answer | Historical LinearRAG prompt | Not consistent |
+| Top-k | 0 context | 5 | 8 | Not consistent |
+| Chunk setting | Not recorded in formal artifact | Not recorded in formal artifact | 1000 token / 100 overlap | Incomplete |
+| Gold evidence | Auto lexical candidate | Auto lexical candidate | Same candidate set used for recomputation | Needs audit |
+| Chapter retrieval | N/A | N/A | Disabled for Original baseline | Consistent in intent |
 
-任务 4 的严格重跑应把三种方法都固定到同一个生成模型、同一 prompt 规范、同一 Top-k、同一 generation 参数。当前报告保留历史结果，不把不同配置伪装成严格公平实验。
+因此当前结果适合做已有实验对比和问题定位，不应作为严格公平的最终 ablation 结论。严格版需要统一生成模型、prompt、Top-k、chunk 参数和 generation 参数，并保存三套逐题输出及逐题计时。
 
-## 4. Evidence Recall 的两种定义
+## 7. 指标覆盖结论
 
-### 4.1 Evidence Recall@k：passage-id 检索指标
+- 三种 baseline 的 1000 题答案类指标已经补齐：Answer Accuracy、Contain-Acc、Exact Match、Token-F1、ROUGE-L-F1。
+- Dense RAG 和 Original LinearRAG 的 passage-id 检索指标已经补齐，但依赖自动候选 evidence。
+- Closed-book 的检索指标为 `N/A`，这是方法不适用，不是得分为 0。
+- Original LinearRAG 的 LLM RAG Judge 只有 230 题，不能代表完整 1000 题。
+- Original LinearRAG 的延迟指标缺少原始计时，保留为 `N/A`。
 
-定义：
+## 8. 结果文件
 
-```text
-Recall@k = |Gold passage IDs ∩ Top-k retrieved passage IDs| / |Gold passage IDs|
-```
-
-Dense RAG 的历史正式结果为 **11.93%**。但其 gold evidence 来源是 `auto_lexical_candidate`，只能作为流程验证和弱监督候选，不能称为人工确认的最终证据标注。
-
-Closed-book 没有检索结果，所以该指标为 `N/A`。Original LinearRAG 当前缺少逐题 `gold_evidence` 和 retrieved passage artifact，因此为 `N/A`。
-
-### 4.2 LLM RAG Judge Evidence Recall：语义支撑指标
-
-该指标由 `scripts/evaluate_predictions.py` / `src/rag_metrics.py` 让裁判模型拆分 reference facts，并判断这些事实是否能被 Top-k 上下文支持：
-
-```text
-LLM RAG Judge Evidence Recall = supported reference facts / all reference facts
-```
-
-它与 passage-id Recall@k 不是同一个指标，不能互换。当前 Task 4 正式 Closed-book/Dense RAG 运行只生成了 passage-id Recall@5，没有执行这套 JSON RAG judge；Original LinearRAG 也没有保留对应逐题文件，因此三个 baseline 的该项均为 `N/A`。
-
-## 5. 延迟分析
-
-Closed-book 平均总延迟为 **111.44 ms**，Dense RAG 平均总延迟为 **313.12 ms**，增加 **201.68 ms**。Dense RAG 的平均检索延迟为 **43.27 ms**，约占总延迟的 **13.8%**；主要成本仍然来自 LLM generation。
-
-Original LinearRAG 的历史日志记录了图规模和运行配置，但没有保留逐题 retrieval/total latency，因此不报告伪造的平均值。后续需要在 `retrieve()` 和 `qa()` 周围直接记录计时，并区分 index、retrieval、generation、total 四个阶段。
-
-## 6. 指标覆盖矩阵
-
-下表中的 `N/A` 表示当前没有可审计的输入或该方法不适用，不表示分数为 0。
-
-| Metric | Closed-book | Dense RAG | Original LinearRAG | 当前状态 |
-|---|---:|---:|---:|---|
-| Answer Accuracy | 已有 | 已有 | 已有 | 人工语义评测 |
-| Contain-Acc | 已有 | 已有 | N/A | Original 缺逐题答案产物 |
-| Evidence Recall@5 | N/A | 已有 | N/A | Closed 不适用；Original 缺证据 ID |
-| Evidence Precision/Hit/MRR/nDCG/Retrieval F1@5 | N/A | 已补齐 | N/A | 从 Dense RAG 逐题 Top-5 重算 |
-| LLM RAG Judge Evidence Recall | N/A | N/A | N/A | 未执行 JSON RAG judge |
-| Context Relevance/Precision | N/A | N/A | N/A | 未执行 RAG judge |
-| Answer Fact Coverage/Faithfulness | N/A | N/A | N/A | 未执行 RAG judge |
-| Exact Match/Token F1/ROUGE-L | 已补齐 | 已补齐 | N/A | 从 Closed/Dense 逐题预测重算 |
-| Semantic Similarity | N/A | N/A | N/A | 当前环境缺少 sentence-transformers |
-| Retrieval/Total Latency | 部分 | 已有 | N/A | Original 缺逐题计时 |
-
-## 7. Gold 标注与数据泄露检查
-
-- `gold_answer`、`gold_evidence`、`gold_book`、`gold_chapter` 可以保存在问题记录中，但只能用于评测。
-- `run_task4_minimal_baselines.py` 的正式逻辑没有把 `gold_book` 或 `gold_chapter` 作为 Dense RAG 的检索过滤条件。
-- Original LinearRAG 的 `retrieve()` 只使用问题 embedding、NER seed、图传播和可选配置；task 4 baseline 必须保持 `enable_chapter_retrieval=False`。
-- Dense RAG 的 `sentence_transformer` backend 已在历史正式 run 中使用；`tfidf_fallback` 只出现在早期 70 题 smoke test，不应作为正式 Dense RAG 结论。
-- gold evidence 当前是自动词法候选，正式论文结论前仍需要逐题人工审计或建立独立标注文件。
-
-## 8. 复现与后续补齐
-
-当前正式历史数据来源：
-
-- Closed-book/Dense RAG：Git commit `95ae490` 的 `results/task4_formal/`。
-- Original LinearRAG：task3 分支的 `README.md`、`docs/EXPERIMENT.md`、`docs/CHAPTER_RETRIEVAL.md` 和 `错误分析/2026-09-08_qwen2.5-7b_full-1000_manual_review.md`。
-- 统一评测实现：`scripts/evaluate_predictions.py`、`src/paper_evaluator.py`、`src/rag_metrics.py`。
-
-建议严格最终版统一为：同一 `qwen2.5:7b`、同一 answer-only prompt、同一 Top-5、同一 `all-mpnet-base-v2`、temperature 0、同一 1,000 题顺序；Original LinearRAG 关闭 chapter retrieval，Dense RAG 只做向量 Top-5，Closed-book 不注入上下文。然后保存三套逐题 JSON，再执行统一评测器，才能补齐上表所有 N/A 指标。
-
-## 9. 产物
-
-- `results/task4_formal/baseline_comparison.json`：结构化结果汇总。
-- `results/task4_formal/baseline_comparison.csv`：表格导出。
-- `results/task4_formal/baseline_comparison.md`：简表。
-- `results/task4_formal/TASK4_BASELINE_ANALYSIS.md`：本文完整分析。
+- `results/task4_formal/baseline_comparison.json`
+- `results/task4_formal/baseline_comparison.csv`
+- `results/task4_formal/baseline_comparison.md`
+- `results/task4_formal/original_linearrag/predictions.task4_scored.json`
+- `scripts/complete_task4_linear_rag_metrics.py`
