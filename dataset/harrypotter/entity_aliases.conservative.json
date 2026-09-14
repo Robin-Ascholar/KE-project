@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "description": "Conservative, manually reviewed identity aliases for query-time activation. Ordinary first/last-name abbreviations are intentionally excluded.",
+  "entities": [
+    {
+      "canonical_name": "Voldemort",
+      "aliases": [
+        "Lord Voldemort",
+        "Tom Riddle",
+        "Tom Marvolo Riddle",
+        "You-Know-Who",
+        "He-Who-Must-Not-Be-Named",
+        "Dark Lord",
+        "The Dark Lord"
+      ]
+    },
+    {
+      "canonical_name": "Peter Pettigrew",
+      "aliases": ["Wormtail", "Scabbers"]
+    },
+    {
+      "canonical_name": "Sirius Black",
+      "aliases": ["Sirius", "Padfoot", "Snuffles"]
+    },
+    {
+      "canonical_name": "Remus Lupin",
+      "aliases": ["Lupin", "Professor Lupin", "Moony"]
+    },
+    {
+      "canonical_name": "James Potter",
+      "aliases": ["Prongs"]
+    },
+    {
+      "canonical_name": "Severus Snape",
+      "aliases": ["Snape", "Professor Snape", "The Half-Blood Prince", "Half-Blood Prince"]
+    },
+    {
+      "canonical_name": "Buckbeak",
+      "aliases": ["Witherwings"]
+    },
+    {
+      "canonical_name": "Regulus Arcturus Black",
+      "aliases": ["Regulus Black", "R.A.B."]
+    },
+    {
+      "canonical_name": "Helena Ravenclaw",
+      "aliases": ["The Grey Lady"]
+    },
+    {
+      "canonical_name": "Sir Nicholas de Mimsy-Porpington",
+      "aliases": ["Nearly Headless Nick"]
+    }
+  ]
+}

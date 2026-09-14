@@ -8,7 +8,7 @@ import math
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from src.ner import SpacyNER
-from src.entity_alias import EntityAliasResolver
+from src.entity_alias import EntityAliasResolver, normalize_entity_name
 import igraph as ig
 import re
 import logging
@@ -43,7 +43,8 @@ class LinearRAG:
         self.entity_alias_resolver = EntityAliasResolver(
             alias_path,
             enabled=self.config.enable_alias_activation,
-            activation_score=self.config.alias_activation_score,
+            expansion_budget=self.config.alias_expansion_budget,
+            max_expansions=self.config.max_alias_expansions,
         )
         self.graph = ig.Graph(directed=False)
 
@@ -590,7 +591,17 @@ class LinearRAG:
         self.last_alias_expansions = []
         question_entities = set(self.spacy_ner.question_ner(question))
         question_entities.update(self.entity_alias_resolver.find_mentions(question))
-        question_entities = sorted(question_entities)
+        # Resolve longer, more specific mentions first.  NER and lexical alias
+        # matching may both return mentions from the same logical entity group;
+        # processing the group once prevents duplicate activation mass.
+        question_entities = sorted(
+            question_entities,
+            key=lambda value: (
+                -len(normalize_entity_name(value).split()),
+                -len(normalize_entity_name(value)),
+                normalize_entity_name(value),
+            ),
+        )
         if len(question_entities) == 0:
             return [],[],[],[]
         available_entities = self.entity_embedding_store.texts
@@ -600,7 +611,11 @@ class LinearRAG:
 
         unresolved_entities = []
         alias_summary_by_id = {}
+        processed_alias_ids = set()
         for question_entity in question_entities:
+            alias_entity = self.entity_alias_resolver.entity_for(question_entity)
+            if alias_entity is not None and alias_entity.entity_id in processed_alias_ids:
+                continue
             alias_candidates = self.entity_alias_resolver.candidate_names(
                 question_entity,
                 available_entities,
@@ -612,6 +627,7 @@ class LinearRAG:
                 )
                 if summary:
                     alias_summary_by_id[summary["canonical_entity_id"]] = summary
+                    processed_alias_ids.add(summary["canonical_entity_id"])
                 for entity_text, entity_score in alias_candidates:
                     entity_hash_id = self.entity_embedding_store.text_to_hash_id.get(entity_text)
                     if entity_hash_id is None:
@@ -677,9 +693,10 @@ class LinearRAG:
         self.add_entity_to_passage_edges(passage_hash_id_to_entities)
         self.add_adjacent_passage_edges()
         self.augment_graph()
-        output_graphml_path = os.path.join(self.config.working_dir,self.dataset_name, "LinearRAG.graphml")
-        os.makedirs(os.path.dirname(output_graphml_path), exist_ok=True)
-        self.graph.write_graphml(output_graphml_path)
+        if self.config.save_graph_index:
+            output_graphml_path = os.path.join(self.config.working_dir,self.dataset_name, "LinearRAG.graphml")
+            os.makedirs(os.path.dirname(output_graphml_path), exist_ok=True)
+            self.graph.write_graphml(output_graphml_path)
 
     def add_adjacent_passage_edges(self):
         passage_id_to_text = self.passage_embedding_store.get_hash_id_to_text()

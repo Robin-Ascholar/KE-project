@@ -46,6 +46,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use-vectorized-retrieval", action="store_true")
     parser.add_argument("--entity-alias-path", type=Path, help="Optional entity alias JSON path")
     parser.add_argument("--disable-alias-activation", action="store_true", help="Disable query-time entity alias expansion")
+    parser.add_argument("--alias-expansion-budget", type=float, default=0.75, help="Total score shared by expanded aliases in one entity group")
+    parser.add_argument("--max-alias-expansions", type=int, default=8, help="Maximum expanded surface forms per logical entity")
     parser.add_argument("--output-dir", type=Path, help="Existing directory resumes automatically")
     parser.add_argument("--limit-per-set", type=int, help="Development/smoke-test limit")
     parser.add_argument("--no-evaluate", action="store_true")
@@ -129,6 +131,10 @@ def main() -> None:
     args = parse_args()
     if args.question_batch_size < 1:
         raise ValueError("--question-batch-size must be positive")
+    if not 0.0 <= args.alias_expansion_budget <= 1.0:
+        raise ValueError("--alias-expansion-budget must be in [0, 1]")
+    if args.max_alias_expansions < 0:
+        raise ValueError("--max-alias-expansions must be non-negative")
 
     os.environ.setdefault("OPENAI_API_KEY", "ollama")
     os.environ.setdefault("OPENAI_BASE_URL", "http://127.0.0.1:11434/v1")
@@ -163,6 +169,8 @@ def main() -> None:
             row["completed"] = min(int(previous.get("completed", 0)), row["question_count"])
         manifest["entity_alias_path"] = str(args.entity_alias_path) if args.entity_alias_path else None
         manifest["alias_activation_enabled"] = not args.disable_alias_activation
+        manifest["alias_expansion_budget"] = args.alias_expansion_budget
+        manifest["max_alias_expansions"] = args.max_alias_expansions
         manifest["question_sets"] = set_meta
     else:
         manifest = {
@@ -176,6 +184,8 @@ def main() -> None:
             "question_batch_size": args.question_batch_size,
             "entity_alias_path": str(args.entity_alias_path) if args.entity_alias_path else None,
             "alias_activation_enabled": not args.disable_alias_activation,
+            "alias_expansion_budget": args.alias_expansion_budget,
+            "max_alias_expansions": args.max_alias_expansions,
             "question_sets": set_meta,
         }
     update_manifest(manifest_path, manifest, "indexing")
@@ -203,8 +213,11 @@ def main() -> None:
         top_k_sentence=args.top_k_sentence,
         retrieval_top_k=args.retrieval_top_k,
         use_vectorized_retrieval=args.use_vectorized_retrieval,
+        save_graph_index=False,
         entity_alias_path=str(args.entity_alias_path) if args.entity_alias_path else None,
         enable_alias_activation=not args.disable_alias_activation,
+        alias_expansion_budget=args.alias_expansion_budget,
+        max_alias_expansions=args.max_alias_expansions,
     )
     rag = LinearRAG(global_config=config)
     rag.index(passages)

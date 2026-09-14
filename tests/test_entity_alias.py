@@ -22,6 +22,36 @@ class EntityAliasResolverTest(unittest.TestCase):
         self.assertEqual(names[0], "Tom Riddle")
         self.assertIn("Voldemort", names)
         self.assertIn("Lord Voldemort", names)
+        scores = dict(candidates)
+        self.assertEqual(scores["Tom Riddle"], 1.0)
+        self.assertAlmostEqual(sum(scores[name] for name in names[1:]), 0.75)
+
+    def test_duplicate_surface_variants_do_not_multiply_activation_mass(self):
+        resolver = EntityAliasResolver(
+            "dataset/harrypotter/entity_aliases.json",
+            expansion_budget=0.6,
+        )
+        candidates = resolver.candidate_names(
+            "Harry Potter",
+            ["Harry Potter", "HARRY POTTER", "Harry", "HARRY", "The Boy Who Lived"],
+        )
+        names = [name for name, _ in candidates]
+        self.assertEqual(names[0], "Harry Potter")
+        self.assertEqual(len(names), 3)
+        self.assertAlmostEqual(sum(score for _, score in candidates[1:]), 0.6)
+
+    def test_alias_expansion_limit_is_applied_after_primary_seed(self):
+        resolver = EntityAliasResolver(
+            "dataset/harrypotter/entity_aliases.json",
+            expansion_budget=0.5,
+            max_expansions=2,
+        )
+        candidates = resolver.candidate_names(
+            "Tom Riddle",
+            ["Tom Riddle", "Voldemort", "Lord Voldemort", "Dark Lord"],
+        )
+        self.assertEqual(len(candidates), 3)
+        self.assertAlmostEqual(sum(score for _, score in candidates[1:]), 0.5)
 
     def test_unknown_mention_keeps_original_path_available(self):
         resolver = EntityAliasResolver("dataset/harrypotter/entity_aliases.json")

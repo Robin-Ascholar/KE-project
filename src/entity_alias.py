@@ -59,10 +59,16 @@ class EntityAliasResolver:
         alias_path: Optional[str] = None,
         *,
         enabled: bool = True,
-        activation_score: float = 0.85,
+        expansion_budget: float = 0.75,
+        max_expansions: int = 8,
     ) -> None:
         self.enabled = enabled
-        self.activation_score = float(activation_score)
+        self.expansion_budget = float(expansion_budget)
+        self.max_expansions = int(max_expansions)
+        if not 0.0 <= self.expansion_budget <= 1.0:
+            raise ValueError("expansion_budget must be in [0, 1]")
+        if self.max_expansions < 0:
+            raise ValueError("max_expansions must be non-negative")
         self.alias_path = str(alias_path) if alias_path else None
         self.entities: Dict[str, AliasEntity] = {}
         self.alias_to_canonical: Dict[str, str] = {}
@@ -154,7 +160,13 @@ class EntityAliasResolver:
         mention: object,
         available_entities: Sequence[str],
     ) -> List[Tuple[str, float]]:
-        """Return available graph names and their alias activation scores."""
+        """Return one primary seed plus budgeted alias expansion seeds.
+
+        Surface variants with identical normalized text are represented once.
+        The primary name receives score 1.0.  All remaining aliases share a
+        fixed group budget, so adding aliases cannot increase total activation
+        mass without bound.
+        """
 
         entity = self.entity_for(mention)
         if entity is None:
@@ -167,25 +179,57 @@ class EntityAliasResolver:
                 available_by_key.setdefault(key, []).append(name)
 
         mention_key = normalize_entity_name(mention)
+        canonical_key = normalize_entity_name(entity.canonical_name)
         ordered_names = sorted(
             entity.names,
             key=lambda name: (
                 0 if normalize_entity_name(name) == mention_key else 1,
-                0 if normalize_entity_name(name) == normalize_entity_name(entity.canonical_name) else 1,
-                normalize_entity_name(name),
+                0 if normalize_entity_name(name) == canonical_key else 1,
+                entity.names.index(name),
             ),
         )
-        candidates: List[Tuple[str, float]] = []
-        seen = set()
-        for name in ordered_names:
-            key = normalize_entity_name(name)
-            for available_name in available_by_key.get(key, []):
-                if available_name in seen:
-                    continue
-                seen.add(available_name)
-                score = 1.0 if key == mention_key else self.activation_score
-                candidates.append((available_name, score))
-        return candidates
+
+        def representative(configured_name: str, key: str) -> Optional[str]:
+            variants = available_by_key.get(key, [])
+            if not variants:
+                return None
+            mention_text = str(mention).strip()
+            return min(
+                variants,
+                key=lambda value: (
+                    0 if value == mention_text else 1,
+                    0 if value == configured_name else 1,
+                    0 if value.casefold() == configured_name.casefold() else 1,
+                    len(value),
+                    value.casefold(),
+                    value,
+                ),
+            )
+
+        unique_available: List[Tuple[str, str]] = []
+        seen_keys = set()
+        for configured_name in ordered_names:
+            key = normalize_entity_name(configured_name)
+            if key in seen_keys:
+                continue
+            selected = representative(configured_name, key)
+            if selected is not None:
+                seen_keys.add(key)
+                unique_available.append((key, selected))
+        if not unique_available:
+            return []
+
+        primary_position = next(
+            (index for index, (key, _) in enumerate(unique_available) if key == mention_key),
+            0,
+        )
+        primary_key, primary_name = unique_available.pop(primary_position)
+        del primary_key
+        expansions = unique_available[: self.max_expansions]
+        expansion_score = self.expansion_budget / len(expansions) if expansions else 0.0
+        return [(primary_name, 1.0)] + [
+            (name, expansion_score) for _, name in expansions
+        ]
 
     def find_mentions(self, text: object) -> List[str]:
         """Find configured alias phrases in free-form query text.
@@ -234,6 +278,8 @@ class EntityAliasResolver:
             "canonical_name": entity.canonical_name,
             "canonical_entity_id": entity.entity_id,
             "activated_entities": [name for name, _ in candidates],
+            "activation_scores": {name: score for name, score in candidates},
+            "expansion_budget": self.expansion_budget,
         }
 
     def validate_available_entities(self, available_entities: Iterable[str]) -> Dict[str, object]:

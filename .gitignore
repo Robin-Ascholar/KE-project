@@ -32,6 +32,7 @@ dataset/harrypotter/*
 !dataset/harrypotter/book*.json
 !dataset/harrypotter/questions.example.json
 !dataset/harrypotter/entity_aliases.json
+!dataset/harrypotter/entity_aliases.conservative.json
 !dataset/harrypotter/retrieval_checks.example.json
 
 # New LinearRAG indexes and outputs are ignored by default; current harrypotter snapshot is tracked explicitly
