@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare baseline and conservative alias activation without calling an LLM."""
+"""Compare alias and chapter retrieval combinations without calling an LLM."""
 
 from __future__ import annotations
 
@@ -56,6 +56,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-k-sentence", type=int, default=3)
     parser.add_argument("--alias-expansion-budget", type=float, default=0.75)
     parser.add_argument("--max-alias-expansions", type=int, default=8)
+    parser.add_argument(
+        "--compare-chapter-variants",
+        action="store_true",
+        help="Run baseline, alias-only, chapter-only, and combined variants",
+    )
+    parser.add_argument("--chapter-top-k", type=int, default=16)
+    parser.add_argument("--chapter-global-fallback", type=int, default=4)
+    parser.add_argument(
+        "--reference-dir",
+        type=Path,
+        help="Reuse baseline.json and alias.json from a previous compatible run",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
 
@@ -154,6 +166,10 @@ def main() -> None:
         raise ValueError("--alias-expansion-budget must be in [0, 1]")
     if args.max_alias_expansions < 0:
         raise ValueError("--max-alias-expansions must be non-negative")
+    if args.chapter_top_k < 1:
+        raise ValueError("--chapter-top-k must be positive")
+    if args.chapter_global_fallback < 0:
+        raise ValueError("--chapter-global-fallback must be non-negative")
 
     questions = load_questions(args)
     if args.only_alias_triggered:
@@ -192,14 +208,36 @@ def main() -> None:
         enable_alias_activation=True,
         alias_expansion_budget=args.alias_expansion_budget,
         max_alias_expansions=args.max_alias_expansions,
+        enable_chapter_retrieval=args.compare_chapter_variants,
+        chapter_top_k=args.chapter_top_k,
+        chapter_global_fallback=args.chapter_global_fallback,
     )
     rag = LinearRAG(global_config=config)
     rag.index(passages)
 
     variants = {}
     elapsed = {}
-    for name, enabled in (("baseline", False), ("alias", True)):
-        rag.entity_alias_resolver.enabled = enabled
+    variant_settings = []
+    if args.reference_dir:
+        reference_dir = project_path(args.reference_dir)
+        for name in ("baseline", "alias"):
+            variants[name] = json.loads(
+                (reference_dir / f"{name}.json").read_text(encoding="utf-8")
+            )
+            if len(variants[name]) != len(questions):
+                raise ValueError(f"Reference {name}.json does not match selected questions")
+            elapsed[name] = None
+    else:
+        variant_settings.extend(
+            [("baseline", False, False), ("alias", True, False)]
+        )
+    if args.compare_chapter_variants:
+        variant_settings.extend(
+            [("chapter", False, True), ("combined", True, True)]
+        )
+    for name, alias_enabled, chapter_enabled in variant_settings:
+        rag.entity_alias_resolver.enabled = alias_enabled
+        rag.config.enable_chapter_retrieval = chapter_enabled
         started = time.perf_counter()
         variants[name] = rag.retrieve(questions)
         elapsed[name] = time.perf_counter() - started
@@ -218,6 +256,10 @@ def main() -> None:
         "alias_file": str(args.alias_file),
         "alias_expansion_budget": args.alias_expansion_budget,
         "max_alias_expansions": args.max_alias_expansions,
+        "compare_chapter_variants": args.compare_chapter_variants,
+        "chapter_top_k": args.chapter_top_k,
+        "chapter_global_fallback": args.chapter_global_fallback,
+        "reference_dir": str(args.reference_dir) if args.reference_dir else None,
         "elapsed_seconds": elapsed,
         "overall": {
             "baseline": summarize(variants["baseline"], top_ks),
@@ -236,6 +278,26 @@ def main() -> None:
             },
         },
     }
+    if args.compare_chapter_variants:
+        summary["variant_metrics"] = {
+            name: {
+                **summarize(records, top_ks),
+                "mean_chapter_candidate_passages": (
+                    mean(record["chapter_candidate_passages"] for record in records)
+                    if name in {"chapter", "combined"}
+                    else None
+                ),
+            }
+            for name, records in variants.items()
+        }
+        summary["paired_vs_baseline"] = {
+            name: {
+                str(top_k): paired_counts(variants["baseline"], records, top_k)
+                for top_k in top_ks
+            }
+            for name, records in variants.items()
+            if name != "baseline"
+        }
     atomic_json(output_dir / "summary.json", summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 

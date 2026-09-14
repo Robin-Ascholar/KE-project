@@ -21,11 +21,11 @@ class LinearRAGConfig:
     iteration_threshold: float = 0.5
     use_vectorized_retrieval: bool = False  # True for vectorized matrix computation, False for BFS iteration
     enable_chapter_retrieval: bool = False
-    chapter_top_k: int = 8
-    chapter_global_fallback: int = 2
+    chapter_top_k: int = 16
+    chapter_global_fallback: int = 4
     save_graph_index: bool = True
     entity_alias_path: Optional[str] = None
-    enable_alias_activation: bool = True
+    enable_alias_activation: bool = False
     # Alias nodes share this budget per logical entity.  It is deliberately a
     # total budget rather than a per-node score, otherwise large alias groups
     # dominate Personalized PageRank merely because they contain more names.

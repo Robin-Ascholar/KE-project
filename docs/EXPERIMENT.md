@@ -131,7 +131,7 @@ GraphML 中保存 passage/entity 图；sentence 记录用于实体激活阶段�
 | 实验 | 章节检索 | `chapter_top_k` | `chapter_global_fallback` |
 |---|---|---:|---:|
 | 原始基线 | 关闭 | - | - |
-| 创新 3 | 开启 | 8 | 2 |
+| 创新 3 | 开启 | 16 | 4 |
 | 消融实验 | 开启 | 4 或 16 | 0 或 4 |
 
 所有实验应使用不同的输出目录，并固定问题集、问答模型、`retrieval_top_k`、embedding 模型、并发数和评测模型。

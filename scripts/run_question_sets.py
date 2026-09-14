@@ -45,10 +45,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-k-sentence", type=int, default=3)
     parser.add_argument("--use-vectorized-retrieval", action="store_true")
     parser.add_argument("--enable-chapter-retrieval", action="store_true", help="Use chapter coarse-to-fine retrieval")
-    parser.add_argument("--chapter-top-k", type=int, default=8)
-    parser.add_argument("--chapter-global-fallback", type=int, default=2)
+    parser.add_argument("--chapter-top-k", type=int, default=16)
+    parser.add_argument("--chapter-global-fallback", type=int, default=4)
     parser.add_argument("--entity-alias-path", type=Path, help="Optional entity alias JSON path")
-    parser.add_argument("--disable-alias-activation", action="store_true", help="Disable query-time entity alias expansion")
+    alias_group = parser.add_mutually_exclusive_group()
+    alias_group.add_argument("--enable-alias-activation", dest="enable_alias_activation", action="store_true", help="Enable query-time entity alias expansion")
+    alias_group.add_argument("--disable-alias-activation", dest="enable_alias_activation", action="store_false", help="Disable query-time entity alias expansion")
+    parser.set_defaults(enable_alias_activation=False)
     parser.add_argument("--alias-expansion-budget", type=float, default=0.75, help="Total score shared by expanded aliases in one entity group")
     parser.add_argument("--max-alias-expansions", type=int, default=8, help="Maximum expanded surface forms per logical entity")
     parser.add_argument("--output-dir", type=Path, help="Existing directory resumes automatically")
@@ -175,7 +178,7 @@ def main() -> None:
                 raise ValueError(f"Question set changed since checkpoint: {row['name']}")
             row["completed"] = min(int(previous.get("completed", 0)), row["question_count"])
         manifest["entity_alias_path"] = str(args.entity_alias_path) if args.entity_alias_path else None
-        manifest["alias_activation_enabled"] = not args.disable_alias_activation
+        manifest["alias_activation_enabled"] = args.enable_alias_activation
         manifest["alias_expansion_budget"] = args.alias_expansion_budget
         manifest["max_alias_expansions"] = args.max_alias_expansions
         manifest["enable_chapter_retrieval"] = args.enable_chapter_retrieval
@@ -196,7 +199,7 @@ def main() -> None:
             "chapter_global_fallback": args.chapter_global_fallback,
             "question_batch_size": args.question_batch_size,
             "entity_alias_path": str(args.entity_alias_path) if args.entity_alias_path else None,
-            "alias_activation_enabled": not args.disable_alias_activation,
+            "alias_activation_enabled": args.enable_alias_activation,
             "alias_expansion_budget": args.alias_expansion_budget,
             "max_alias_expansions": args.max_alias_expansions,
             "question_sets": set_meta,
@@ -231,7 +234,7 @@ def main() -> None:
         chapter_global_fallback=args.chapter_global_fallback,
         save_graph_index=False,
         entity_alias_path=str(args.entity_alias_path) if args.entity_alias_path else None,
-        enable_alias_activation=not args.disable_alias_activation,
+        enable_alias_activation=args.enable_alias_activation,
         alias_expansion_budget=args.alias_expansion_budget,
         max_alias_expansions=args.max_alias_expansions,
     )

@@ -4,14 +4,24 @@ import numpy as np
 
 try:
     from src.LinearRAG import LinearRAG
+    from src.config import LinearRAGConfig
     IMPORT_ERROR = None
 except ModuleNotFoundError as error:
     LinearRAG = None
+    LinearRAGConfig = None
     IMPORT_ERROR = error
 
 
 @unittest.skipIf(LinearRAG is None, f"project dependencies unavailable: {IMPORT_ERROR}")
 class ChapterRetrievalTests(unittest.TestCase):
+    def test_experimental_features_are_opt_in(self):
+        config = LinearRAGConfig(dataset_name="test")
+
+        self.assertFalse(config.enable_chapter_retrieval)
+        self.assertFalse(config.enable_alias_activation)
+        self.assertEqual(config.chapter_top_k, 16)
+        self.assertEqual(config.chapter_global_fallback, 4)
+
     def test_chapter_candidates_keep_global_fallback(self):
         rag = LinearRAG.__new__(LinearRAG)
         rag.chapter_keys = ["book1-chapter1", "book1-chapter2"]

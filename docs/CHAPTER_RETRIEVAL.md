@@ -36,8 +36,8 @@
 | 参数 | 默认值 | 含义 |
 |---|---:|---|
 | `enable_chapter_retrieval` | `False` | 是否启用章节粗到细检索；关闭时为原始基线 |
-| `chapter_top_k` | `8` | coarse 阶段保留的章节数 |
-| `chapter_global_fallback` | `2` | 从全量 Dense 检索中额外保留的 passage 数 |
+| `chapter_top_k` | `16` | coarse 阶段保留的章节数 |
+| `chapter_global_fallback` | `4` | 从全量 Dense 检索中额外保留的 passage 数 |
 | `retrieval_top_k` | `8` | 最终交给问答模型的 passage 数 |
 
 默认关闭章节检索是为了保证原始 LinearRAG 基线行为不变。创新 3 实验必须显式添加 `--enable-chapter-retrieval`。
@@ -109,8 +109,8 @@ python scripts/run_question_sets.py \
   --question-batch-size 10 \
   --retrieval-top-k 8 \
   --enable-chapter-retrieval \
-  --chapter-top-k 8 \
-  --chapter-global-fallback 2 \
+  --chapter-top-k 16 \
+  --chapter-global-fallback 4 \
   --judge-model qwen3.6:27b \
   --judge-workers 1 \
   --judge-timeout 300 \
@@ -146,7 +146,7 @@ python scripts/run_question_sets.py \
 两次实验应使用不同的 `--output-dir`，避免断点文件互相复用。例如：
 
 ```bash
---output-dir results/harrypotter/innovation3_chapter_top8_fallback2
+--output-dir results/harrypotter/innovation3_chapter_top16_fallback4
 ```
 
 基线可使用：
@@ -169,7 +169,7 @@ chapter_global_fallback: 0, 2, 4
 | 实验 | 章节 Top-K | Global fallback |
 |---|---:|---:|
 | Baseline | 不启用 | 不适用 |
-| Innovation-3 | 8 | 2 |
+| Innovation-3 | 16 | 4 |
 | Ablation-small | 4 | 0 |
 | Ablation-large | 16 | 4 |
 
@@ -210,15 +210,15 @@ evaluation_results.json                   # 汇总指标
 
 ```bash
 python scripts/run_question_sets.py \
-  --output-dir results/harrypotter/innovation3_chapter_top8_fallback2 \
+  --output-dir results/harrypotter/innovation3_chapter_top16_fallback4 \
   --question-dir dataset/question \
   --dataset-name harrypotter \
   --embedding-model model/all-mpnet-base-v2 \
   --embedding-device cuda \
   --llm-model deepseek-ocr:latest \
   --enable-chapter-retrieval \
-  --chapter-top-k 8 \
-  --chapter-global-fallback 2
+  --chapter-top-k 16 \
+  --chapter-global-fallback 4
 ```
 
 不要修改同一实验目录对应的问题集；脚本会通过 SHA256 检查问题集是否发生变化。
@@ -234,3 +234,5 @@ python scripts/run_question_sets.py \
 5. `log.txt` 中的总运行时间和分阶段耗时。
 
 实验报告中应同时报告基线和创新 3 的配置，不能只报告创新 3 的单次准确率。若创新 3 的答案准确率没有提升，但 Evidence Recall 保持不变且候选规模、运行时间下降，也可以说明它主要带来了效率收益；若 Recall 下降，应增大 `chapter_top_k` 或 `chapter_global_fallback`。
+
+固定开发集和测试集的实际对照表明，`16/4` 能稳定提升 Top-5、Top-10 和 MRR，但测试集 Contain@20 有小幅下降。因此章节路由默认关闭，并作为可选实验功能使用。完整结果和与保守别名激活的组合实验见 [COMBINED_RETRIEVAL_RESULTS.md](COMBINED_RETRIEVAL_RESULTS.md)。

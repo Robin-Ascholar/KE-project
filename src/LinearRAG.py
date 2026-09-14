@@ -34,7 +34,14 @@ class LinearRAG:
         self.spacy_ner = SpacyNER(self.config.spacy_model)
         alias_path = self.config.entity_alias_path
         if alias_path is None:
-            alias_path = os.path.join("dataset", self.dataset_name, "entity_aliases.json")
+            conservative_path = os.path.join(
+                "dataset", self.dataset_name, "entity_aliases.conservative.json"
+            )
+            alias_path = (
+                conservative_path
+                if os.path.exists(conservative_path)
+                else os.path.join("dataset", self.dataset_name, "entity_aliases.json")
+            )
         if not os.path.isabs(alias_path):
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             project_alias_path = os.path.join(project_root, alias_path)

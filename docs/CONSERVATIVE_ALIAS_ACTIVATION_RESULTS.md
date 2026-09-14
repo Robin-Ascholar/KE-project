@@ -91,7 +91,7 @@ python scripts/evaluate_entity_alias_retrieval.py \
   --output-dir results/alias_conservative/test_triggered
 ```
 
-评测脚本不会调用 LLM，也不会覆盖 `LinearRAG.graphml`。运行问答时可通过 `run_question_sets.py` 的同名参数选择词典、预算和最大扩展数。
+评测脚本不会调用 LLM，也不会覆盖 `LinearRAG.graphml`。运行问答时先传入 `--enable-alias-activation`，再通过 `run_question_sets.py` 的同名参数选择词典、预算和最大扩展数。
 
 ## 局限
 

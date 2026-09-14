@@ -30,10 +30,13 @@ def parse_arguments():
     parser.add_argument("--retrieval_top_k", type=int, default=8, help="The number of passages to retrieve")
     parser.add_argument("--use_vectorized_retrieval", action="store_true", help="Use vectorized matrix-based retrieval instead of BFS iteration")
     parser.add_argument("--enable_chapter_retrieval", action="store_true", help="Use chapter coarse-to-fine retrieval")
-    parser.add_argument("--chapter_top_k", type=int, default=8, help="Number of chapters selected in coarse retrieval")
-    parser.add_argument("--chapter_global_fallback", type=int, default=2, help="Global passage candidates retained as fallback")
+    parser.add_argument("--chapter_top_k", type=int, default=16, help="Number of chapters selected in coarse retrieval")
+    parser.add_argument("--chapter_global_fallback", type=int, default=4, help="Global passage candidates retained as fallback")
     parser.add_argument("--entity_alias_path", type=str, default=None, help="Optional entity alias JSON path")
-    parser.add_argument("--disable_alias_activation", action="store_true", help="Disable query-time entity alias expansion")
+    alias_group = parser.add_mutually_exclusive_group()
+    alias_group.add_argument("--enable_alias_activation", dest="enable_alias_activation", action="store_true", help="Enable query-time entity alias expansion")
+    alias_group.add_argument("--disable_alias_activation", dest="enable_alias_activation", action="store_false", help="Disable query-time entity alias expansion")
+    parser.set_defaults(enable_alias_activation=False)
     parser.add_argument("--alias_expansion_budget", type=float, default=0.75, help="Total score shared by expanded aliases in one entity group")
     parser.add_argument("--max_alias_expansions", type=int, default=8, help="Maximum expanded surface forms per logical entity")
     return parser.parse_args()
@@ -86,7 +89,7 @@ def main():
         chapter_top_k=args.chapter_top_k,
         chapter_global_fallback=args.chapter_global_fallback,
         entity_alias_path=args.entity_alias_path,
-        enable_alias_activation=not args.disable_alias_activation,
+        enable_alias_activation=args.enable_alias_activation,
         alias_expansion_budget=args.alias_expansion_budget,
         max_alias_expansions=args.max_alias_expansions,
     )

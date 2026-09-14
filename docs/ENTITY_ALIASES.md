@@ -47,17 +47,18 @@
 python scripts/validate_entity_aliases.py
 ```
 
-运行原有检索检查时，默认启用别名扩展；要运行 Original 基线，可使用：
+别名扩展默认关闭，保证原始 LinearRAG 行为不变。显式启用经过验证的保守词典：
 
 ```bash
-python scripts/index_and_test.py --disable-alias-activation
+python scripts/index_and_test.py --enable-alias-activation
 ```
 
 完整问题集可用同样的开关进行对照：
 
 ```bash
-python scripts/run_question_sets.py --disable-alias-activation
+python scripts/run_question_sets.py
 python scripts/run_question_sets.py \
+  --enable-alias-activation \
   --entity-alias-path dataset/harrypotter/entity_aliases.conservative.json \
   --alias-expansion-budget 0.75 \
   --max-alias-expansions 8
