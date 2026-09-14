@@ -1,0 +1,20 @@
+{
+  "task": "task4_baseline_comparison",
+  "status": "historical_result_synthesis",
+  "question_count": 1000,
+  "methods": [
+    "closed_book",
+    "dense_rag",
+    "original_linearrag"
+  ],
+  "formal_closed_dense_source": "git:95ae490:results/task4_formal",
+  "original_linearrag_source": [
+    "task3:README.md",
+    "task3:docs/EXPERIMENT.md",
+    "task3:docs/CHAPTER_RETRIEVAL.md",
+    "task3:错误分析/2026-09-08_qwen2.5-7b_full-1000_manual_review.md"
+  ],
+  "warning": "Original LinearRAG 1,000-row predictions and per-question timing were not retained; unavailable metrics are null/N/A in the report.",
+  "gold_evidence_status": "auto_lexical_candidate_for_dense_rag; not human-audited",
+  "generated_by": "scripts/build_task4_baseline_report.py"
+}
