@@ -1,0 +1,74 @@
+{
+  "status": "complete_contain_only_evaluated",
+  "created_at_utc": "2026-09-15T14:24:42.758633+00:00",
+  "dataset_name": "harrypotter",
+  "question_dir": "dataset/harrypotter",
+  "qa_model": "qwen2.5:0.5b",
+  "judge_model": null,
+  "retrieval_top_k": 5,
+  "enable_chapter_retrieval": true,
+  "chapter_top_k": 16,
+  "chapter_global_fallback": 4,
+  "question_batch_size": 10,
+  "entity_alias_path": "dataset/harrypotter/entity_aliases.json",
+  "alias_activation_enabled": true,
+  "alias_expansion_budget": 0.75,
+  "max_alias_expansions": 8,
+  "question_sets": [
+    {
+      "name": "book1",
+      "source": "dataset/harrypotter/book1.json",
+      "sha256": "4acb1feed78ceb8dbe5fcb0420f891745ab8a26d1d7b0769032e82145540a4b0",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book2",
+      "source": "dataset/harrypotter/book2.json",
+      "sha256": "750cecb6fc5d35b20bedde21fd63d6dd09215e66069b485accbeae499f9d1aeb",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book3",
+      "source": "dataset/harrypotter/book3.json",
+      "sha256": "5d7cc52f0aec02c1f60691b674df5d9f2080a10a1649566dea2292683c2f6f4b",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book4",
+      "source": "dataset/harrypotter/book4.json",
+      "sha256": "74a4fc53a475de22b67eba8d78d42813ea24c8639029a8c659011d923d937a14",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book5",
+      "source": "dataset/harrypotter/book5.json",
+      "sha256": "80e79d7380a3dd888b49f4ca0369b293d87cdd7589e48ef4081800d447c4a636",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book6",
+      "source": "dataset/harrypotter/book6.json",
+      "sha256": "85128323de00a29513ca840f033270e84a30c7193ee8a1201e8c645120beb252",
+      "question_count": 143,
+      "completed": 143
+    },
+    {
+      "name": "book7",
+      "source": "dataset/harrypotter/book7.json",
+      "sha256": "b6679cfb8b5940c1228d1ce867cc640e0438f86ec226419bb4b3afc82cdfa850",
+      "question_count": 142,
+      "completed": 142
+    }
+  ],
+  "updated_at_utc": "2026-09-15T14:31:19.985086+00:00",
+  "combined_prediction_count": 1000,
+  "combined_predictions": "/home/lizhaoxuan/KE-project-0.5b-run/results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/combined_predictions.json",
+  "scored_predictions": "results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/combined_predictions.contain-scored.json",
+  "evaluation_summary": "results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/evaluation_results.contain-only.json",
+  "judge_note": "LLM judge evaluation was intentionally stopped after estimating multi-hour runtime; contain-only deterministic evaluation was completed for all 1000 predictions."
+}
