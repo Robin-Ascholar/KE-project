@@ -1,0 +1,54 @@
+{
+  "metric_definition": "Manual-style exact factual equivalence judgment against gold answers; aliases/abbreviations accepted when unambiguous.",
+  "predictions": "results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/combined_predictions.json",
+  "scored_predictions": "results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/combined_predictions.manual-scored.json",
+  "sample_count": 1000,
+  "correct": 220,
+  "accuracy": 0.22,
+  "qa_model": "qwen2.5:0.5b",
+  "retrieval_top_k": 5,
+  "judge_model_for_semantic_cases": "qwen2.5:7b",
+  "method_counts": {
+    "manual_semantic_judge_qwen2.5:7b": 835,
+    "rule": 161,
+    "manual_human_review": 4
+  },
+  "by_question_set": {
+    "book1": {
+      "count": 143,
+      "correct": 42,
+      "accuracy": 0.2937062937062937
+    },
+    "book2": {
+      "count": 143,
+      "correct": 36,
+      "accuracy": 0.2517482517482518
+    },
+    "book3": {
+      "count": 143,
+      "correct": 39,
+      "accuracy": 0.2727272727272727
+    },
+    "book4": {
+      "count": 143,
+      "correct": 38,
+      "accuracy": 0.26573426573426573
+    },
+    "book5": {
+      "count": 143,
+      "correct": 27,
+      "accuracy": 0.1888111888111888
+    },
+    "book6": {
+      "count": 143,
+      "correct": 17,
+      "accuracy": 0.11888111888111888
+    },
+    "book7": {
+      "count": 142,
+      "correct": 21,
+      "accuracy": 0.14788732394366197
+    }
+  },
+  "scored_at_local": "2026-09-15 22:47:55 +0800"
+}

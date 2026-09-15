@@ -1,10 +1,10 @@
 {
-  "status": "complete_contain_only_evaluated",
+  "status": "complete_manual_scored",
   "created_at_utc": "2026-09-15T14:24:42.758633+00:00",
   "dataset_name": "harrypotter",
   "question_dir": "dataset/harrypotter",
   "qa_model": "qwen2.5:0.5b",
-  "judge_model": null,
+  "judge_model": "qwen2.5:7b",
   "retrieval_top_k": 5,
   "enable_chapter_retrieval": true,
   "chapter_top_k": 16,
@@ -68,7 +68,7 @@
   "updated_at_utc": "2026-09-15T14:31:19.985086+00:00",
   "combined_prediction_count": 1000,
   "combined_predictions": "/home/lizhaoxuan/KE-project-0.5b-run/results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/combined_predictions.json",
-  "scored_predictions": "results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/combined_predictions.contain-scored.json",
-  "evaluation_summary": "results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/evaluation_results.contain-only.json",
-  "judge_note": "LLM judge evaluation was intentionally stopped after estimating multi-hour runtime; contain-only deterministic evaluation was completed for all 1000 predictions."
+  "scored_predictions": "results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/combined_predictions.manual-scored.json",
+  "evaluation_summary": "results/harrypotter/batch_2026-09-15_qwen2.5-0.5b_combined-top5/evaluation_results.manual.json",
+  "judge_note": "Previous contain-only score was removed. This run uses manual-style factual equivalence scoring against gold answers; aliases and unambiguous abbreviations count as correct."
 }
